@@ -6,11 +6,11 @@ import (
 )
 
 type Config struct {
-	Host     string
-	Port     int
-	DBPath   string
+	Host      string
+	Port      int
+	DBPath    string
 	JWTSecret string
-	DataDir  string
+	DataDir   string
 }
 
 func LoadConfig() *Config {
@@ -24,7 +24,7 @@ func LoadConfig() *Config {
 	os.MkdirAll(dataDir+"/export", 0755)
 
 	// 端口配置
-	port := 8080
+	port := 8082
 	if p := os.Getenv("PORT"); p != "" {
 		if parsed, err := strconv.Atoi(p); err == nil {
 			port = parsed

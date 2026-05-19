@@ -81,7 +81,7 @@ export default {
                 </div>
                 <div class="form-group">
                     <label><span class="required">*</span>是否与外部系统对接</label>
-                    <select id="field-has_interface" required>
+                    <select id="field-has_external_interface" required>
                         <option value="否">否</option>
                         <option value="是">是</option>
                     </select>
@@ -311,7 +311,7 @@ export default {
         { name: 'domain_or_ip', label: '域名或IP', type: 'text', required: true, section: '网络与对接信息' },
         { name: 'subsystems', label: '子系统', type: 'text', required: true, section: '网络与对接信息' },
         { name: 'function_modules', label: '功能模块', type: 'text', fullWidth: true, section: '网络与对接信息' },
-        { name: 'has_interface', label: '是否与外部系统对接', type: 'select', options: ['否', '是'], required: true, section: '网络与对接信息' },
+        { name: 'has_external_interface', label: '是否与外部系统对接', type: 'select', options: ['否', '是'], required: true, section: '网络与对接信息' },
         { name: 'interface_scope', label: '对接范围和方式', type: 'text', required: true, section: '网络与对接信息' },
 
         // 责任部门与人员

@@ -1,0 +1,116 @@
+/* 按钮基础样式 */
+.btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--primary-color);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s;
+}
+.btn:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
+}
+
+/* 小按钮 */
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 14px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.3s;
+}
+.btn-sm:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+/* 按钮颜色变体 */
+.btn-primary { background: var(--primary-color); color: var(--bg-primary); }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-success { background: var(--success-color); color: var(--bg-primary); }
+.btn-success:hover { background: var(--success-hover); }
+.btn-danger { background: var(--danger-color); color: var(--bg-primary); }
+.btn-danger:hover { background: var(--danger-hover); }
+.btn-warning { background: var(--warning-color); color: var(--bg-primary); }
+.btn-warning:hover { background: var(--warning-hover); }
+
+/* 大按钮 */
+.btn-lg {
+    padding: 10px 24px;
+    font-size: 15px;
+    border-radius: 6px;
+}
+
+/* 按钮组 */
+.btn-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+/* 卡片样式 */
+.card {
+    background: var(--bg-primary);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-sm);
+}
+.card-header {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+/* 统计卡片 */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+.stat-card {
+    background: var(--bg-primary);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+}
+.stat-card .label { color: var(--text-muted); font-size: 14px; }
+.stat-card .value {
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-top: 10px;
+}
+
+/* 搜索框 */
+.search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.search-bar input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+/* 用户信息和退出按钮 */
+.user-info { color: var(--text-secondary); }
+.logout-btn {
+    padding: 6px 15px;
+    background: var(--danger-color);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+}

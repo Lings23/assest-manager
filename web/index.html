@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资产信息管理系统</title>
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+    <link rel="stylesheet" href="/static/css/forms.css">
+    <link rel="stylesheet" href="/static/css/tables.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 登录页面 -->
+        <div id="login-page" class="login-container">
+            <h2>资产信息管理系统</h2>
+            <form id="login-form" action="javascript:void(0)">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="username" required placeholder="请输入用户名">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="password" required placeholder="请输入密码">
+                </div>
+                <button type="submit" class="btn">登录</button>
+            </form>
+        </div>
+
+        <!-- 主界面 -->
+        <div id="main-page" class="hidden">
+            <div class="main-layout">
+                <aside class="sidebar">
+                    <div class="sidebar-header">
+                        <h3>资产管理系统</h3>
+                    </div>
+                    <nav>
+                        <ul>
+                            <li><a href="#" data-page="dashboard" class="active">统计看板</a></li>
+                            <li><a href="#" data-page="system-info">信息系统清单</a></li>
+                            <li><a href="#" data-page="hardware">信息化软硬件</a></li>
+                            <li><a href="#" data-page="data-assets">数据资产清单</a></li>
+                            <li><a href="#" data-page="supply-chain">供应链清单</a></li>
+                            <li><a href="#" data-page="vulnerability">风险漏洞清单</a></li>
+                            <li><a href="#" data-page="software-stat">软件信息统计</a></li>
+                            <li><a href="#" data-page="responsible-dept">责任部门</a></li>
+                        </ul>
+                    </nav>
+                </aside>
+                <main class="content" id="content-area">
+                    <!-- 动态内容 -->
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模态框 -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">标题</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- 动态内容 -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-sm" onclick="closeModal()">取消</button>
+                <button class="btn-sm btn-primary" id="modal-save-btn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

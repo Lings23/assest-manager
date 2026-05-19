@@ -1,0 +1,25 @@
+# Binaries
+asset-manager
+asset-manager.exe
+*.exe
+*.exe~
+temp_main.exe
+temp_main.exe~
+
+# Build artifacts
+*.o
+*.a
+*.so
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Data directory (may contain sensitive data)
+data/
+
+# OS files
+.DS_Store
+Thumbs.db
+nul

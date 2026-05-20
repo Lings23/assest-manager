@@ -177,6 +177,29 @@ export function validateFormData(type) {
         }
     });
 
+    // 条件验证：system-info 类型
+    if (type === 'system-info') {
+        const hasInterfaceEl = document.getElementById('field-has_external_interface');
+        const interfaceScopeEl = document.getElementById('field-interface_scope');
+
+        if (hasInterfaceEl && hasInterfaceEl.value === '是') {
+            if (interfaceScopeEl && (!interfaceScopeEl.value || !interfaceScopeEl.value.trim())) {
+                errors.push({
+                    field: 'interface_scope',
+                    label: '对接范围和方式',
+                    message: '对接范围和方式为必填项',
+                    element: interfaceScopeEl
+                });
+
+                interfaceScopeEl.classList.add('field-error');
+                const parent = interfaceScopeEl.closest('.form-group');
+                if (parent) {
+                    parent.classList.add('has-error');
+                }
+            }
+        }
+    }
+
     return {
         valid: errors.length === 0,
         errors

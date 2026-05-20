@@ -30,8 +30,8 @@ export default {
                 <div class="form-group">
                     <label>是否关键信息基础设施</label>
                     <select id="field-is_critical_infra">
-                        <option value="false">否</option>
-                        <option value="true">是</option>
+                        <option value="否">否</option>
+                        <option value="是">是</option>
                     </select>
                 </div>
             </div>
@@ -117,15 +117,15 @@ export default {
                 <div class="form-group">
                     <label>数据是否出境</label>
                     <select id="field-is_cross_border">
-                        <option value="false">否</option>
-                        <option value="true">是</option>
+                        <option value="否">否</option>
+                        <option value="是">是</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>是否开展数据出境安全评估</label>
                     <select id="field-has_cross_border_assessment">
-                        <option value="false">否</option>
-                        <option value="true">是</option>
+                        <option value="否">否</option>
+                        <option value="是">是</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -140,8 +140,8 @@ export default {
                 <div class="form-group">
                     <label>包含个人信息要素</label>
                     <select id="field-has_personal_info_elements">
-                        <option value="false">否</option>
-                        <option value="true">是</option>
+                        <option value="否">否</option>
+                        <option value="是">是</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -151,8 +151,8 @@ export default {
                 <div class="form-group">
                     <label>是否包含敏感个人信息</label>
                     <select id="field-has_sensitive_personal">
-                        <option value="false">否</option>
-                        <option value="true">是</option>
+                        <option value="否">否</option>
+                        <option value="是">是</option>
                     </select>
                 </div>
             </div>
@@ -176,7 +176,7 @@ export default {
         // 网络安全等保和关键信息基础设施安全保护情况
         { name: 'source_system', label: '数据来源信息系统名称', type: 'text', section: '网络安全等保和关键信息基础设施安全保护情况' },
         { name: 'security_level', label: '数据来源信息系统等保级别', type: 'select', options: ['一级', '二级', '三级'], section: '网络安全等保和关键信息基础设施安全保护情况' },
-        { name: 'is_critical_infra', label: '是否关键信息基础设施', type: 'select', options: ['false', 'true'], section: '网络安全等保和关键信息基础设施安全保护情况' },
+        { name: 'is_critical_infra', label: '是否关键信息基础设施', type: 'select', options: ['否', '是'], section: '网络安全等保和关键信息基础设施安全保护情况' },
 
         // 数据基本情况
         { name: 'data_name', label: '数据名称', type: 'text', section: '数据基本情况' },
@@ -197,14 +197,14 @@ export default {
         { name: 'processing_purpose', label: '数据处理目的', type: 'textarea', fullWidth: true, section: '数据处理情况' },
         { name: 'usage_scope', label: '数据使用范围', type: 'textarea', fullWidth: true, section: '数据处理情况' },
         { name: 'sharing_scope', label: '数据共享范围和方式', type: 'textarea', fullWidth: true, section: '数据处理情况' },
-        { name: 'is_cross_border', label: '数据是否出境', type: 'select', options: ['false', 'true'], section: '数据处理情况' },
-        { name: 'has_cross_border_assessment', label: '是否开展数据出境安全评估', type: 'select', options: ['false', 'true'], section: '数据处理情况' },
+        { name: 'is_cross_border', label: '数据是否出境', type: 'select', options: ['否', '是'], section: '数据处理情况' },
+        { name: 'has_cross_border_assessment', label: '是否开展数据出境安全评估', type: 'select', options: ['否', '是'], section: '数据处理情况' },
         { name: 'assessment_result', label: '数据出境安全评估结果', type: 'text', section: '数据处理情况' },
 
         // 个人信息基本情况
-        { name: 'has_personal_info_elements', label: '包含个人信息要素', type: 'select', options: ['false', 'true'], section: '个人信息基本情况' },
+        { name: 'has_personal_info_elements', label: '包含个人信息要素', type: 'select', options: ['否', '是'], section: '个人信息基本情况' },
         { name: 'personal_info_scale', label: '个人信息规模（人）', type: 'number', section: '个人信息基本情况' },
-        { name: 'has_sensitive_personal', label: '是否包含敏感个人信息', type: 'select', options: ['false', 'true'], section: '个人信息基本情况' },
+        { name: 'has_sensitive_personal', label: '是否包含敏感个人信息', type: 'select', options: ['否', '是'], section: '个人信息基本情况' },
 
         // 安全措施
         { name: 'security_measures', label: '数据安全防护措施', type: 'textarea', fullWidth: true, section: '安全措施' },

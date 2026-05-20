@@ -10,6 +10,83 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// booleanFieldMappings 定义需要布尔转换的字段（按资产类型）
+var booleanFieldMappings = map[string][]string{
+	"system-info": {
+		"has_external_interface",
+		"has_personal_info",
+		"has_cloud_deploy",
+		"has_media_platform",
+	},
+	"data": {
+		"is_critical_infra",
+		"has_personal_info_elements",
+		"has_sensitive_personal",
+		"is_cross_border",
+		"has_cross_border_assessment",
+		"cross_border",
+	},
+	"hardware":        {},
+	"supply-chain":    {},
+	"vulnerability":   {},
+	"software-stat":   {"is_legalization_done"},
+	"responsible-dept": {},
+}
+
+// convertBooleanFields 将"是"/"否"字符串转换为布尔值
+func convertBooleanFields(assetType string, data map[string]interface{}) {
+	fields, ok := booleanFieldMappings[assetType]
+	if !ok {
+		return
+	}
+
+	for _, field := range fields {
+		if val, exists := data[field]; exists {
+			switch v := val.(type) {
+			case string:
+				if v == "是" {
+					data[field] = true
+				} else if v == "否" {
+					data[field] = false
+				}
+			}
+		}
+	}
+}
+
+// convertBooleanToText 将数据库中的布尔值(0/1)转换为"是"/"否"文本显示
+func convertBooleanToText(assetType string, data map[string]interface{}) {
+	fields, ok := booleanFieldMappings[assetType]
+	if !ok {
+		return
+	}
+
+	for _, field := range fields {
+		if val, exists := data[field]; exists {
+			// 先转换为 bool
+			var boolVal bool
+			switch v := val.(type) {
+			case bool:
+				boolVal = v
+			case int64:
+				boolVal = v == 1
+			case int:
+				boolVal = v == 1
+			case float64:
+				boolVal = v == 1
+			default:
+				continue
+			}
+			// 将布尔值转为 "是"/"否"
+			if boolVal {
+				data[field] = "是"
+			} else {
+				data[field] = "否"
+			}
+		}
+	}
+}
+
 // PaginatedResponse 分页响应结构
 type PaginatedResponse struct {
 	Data     interface{} `json:"data"`
@@ -137,6 +214,8 @@ func ListAssets(db *sql.DB) gin.HandlerFunc {
 					asset[col] = val
 				}
 			}
+			// 将布尔字段的 0/1 转换为 "是"/"否"
+			convertBooleanToText(assetType, asset)
 			assets = append(assets, asset)
 		}
 
@@ -211,6 +290,9 @@ func GetAsset(db *sql.DB) gin.HandlerFunc {
 			}
 		}
 
+
+		// 将布尔字段的 0/1 转换为 "是"/"否"
+		convertBooleanToText(assetType, asset)
 		c.JSON(http.StatusOK, gin.H{"code": 200, "data": asset})
 	}
 }
@@ -233,6 +315,8 @@ func CreateAsset(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// 转换布尔字段（将"是"/"否"转为 true/false）
+		convertBooleanFields(assetType, data)
 		// 数据校验
 		if err := ValidateAssetData(assetType, data); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
@@ -305,6 +389,9 @@ func UpdateAsset(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误"})
 			return
 		}
+
+		// 转换布尔字段（将"是"/"否"转为 true/false）
+		convertBooleanFields(assetType, data)
 
 		// 数据校验（更新时校验提交的字段）
 		if err := ValidateAssetData(assetType, data); err != nil {

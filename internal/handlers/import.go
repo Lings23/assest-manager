@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -138,7 +139,7 @@ func ImportAsset(db *sql.DB) gin.HandlerFunc {
 				}
 				if i < len(record) && record[i] != "" {
 					columnsForInsert = append(columnsForInsert, col.dbColumn)
-					values = append(values, record[i])
+					values = append(values, convertValueByType(record[i], col.fieldType))
 					placeholders = append(placeholders, "?")
 				}
 			}
@@ -224,7 +225,39 @@ type ColumnInfo struct {
 	name      string
 	dbColumn  string
 	required  bool
-	fieldType string
+	fieldType string // text, number, date, select, boolean
+}
+
+// convertValueByType 根据字段类型转换值
+// 支持中文"是/否"转换为布尔值
+func convertValueByType(value string, fieldType string) interface{} {
+	if value == "" {
+		return nil
+	}
+
+	switch fieldType {
+	case "boolean":
+		// 中文"是/否"、英文"true/false"、数字转换
+		// 统一转小写处理，支持拼写错误（如FALSE、FLASE）
+		lowerVal := strings.ToLower(strings.TrimSpace(value))
+		switch lowerVal {
+		case "是", "yes", "true", "1":
+			return true
+		case "否", "no", "false", "0":
+			return false
+		default:
+			return false
+		}
+	case "number":
+		// 数值类型保持字符串（SQLite会自动转换）
+		return value
+	case "date":
+		// 日期格式保持字符串
+		return value
+	default:
+		// text, select 等类型保持原值
+		return value
+	}
 }
 
 // getAssetColumns 获取资产类型的字段配置
@@ -239,13 +272,13 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			{"网络类型", "network_type", true, "select"},
 			{"运行状态", "run_status", true, "select"},
 			{"建成时间", "build_time", true, "date"},
-			{"政务新媒体平台", "has_media_platform", true, "text"},
+			{"政务新媒体平台", "has_media_platform", true, "boolean"},
 			{"移动互联网应用", "mobile_app_type", true, "select"},
 			// 网络与对接信息 (5字段)
 			{"域名或IP", "domain_or_ip", true, "text"},
 			{"子系统", "subsystems", true, "text"},
 			{"功能模块", "function_modules", false, "text"},
-			{"是否外部对接", "has_external_interface", true, "select"},
+			{"是否外部对接", "has_external_interface", true, "boolean"},
 			{"对接范围", "interface_scope", true, "text"},
 			// 责任部门与人员 (11字段)
 			{"主管部门", "supervisory_dept", true, "text"},
@@ -262,7 +295,7 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			// 数据与安全信息 (4字段)
 			{"数据内容", "data_content", true, "text"},
 			{"存储位置", "data_storage_location", true, "text"},
-			{"是否含个人信息", "has_personal_info", true, "select"},
+			{"是否含个人信息", "has_personal_info", true, "boolean"},
 			{"重要数据风险评估", "important_data_risk", false, "text"},
 			// 备份情况 (2字段)
 			{"备份类型", "backup_type", true, "select"},
@@ -273,7 +306,7 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			{"等保测评情况", "security_assessment", false, "select"},
 			{"密评情况", "crypto_assessment", false, "select"},
 			// 云服务情况 (3字段)
-			{"是否云部署", "has_cloud_deploy", true, "select"},
+			{"是否云部署", "has_cloud_deploy", true, "boolean"},
 			{"云服务商", "cloud_provider", false, "text"},
 			{"云安全审查", "cloud_security_review", false, "select"},
 			// 供应链情况 (8字段)
@@ -321,7 +354,7 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			// 网络安全等保和关键信息基础设施安全保护情况 (3字段)
 			{"数据来源信息系统名称", "source_system", false, "text"},
 			{"数据来源信息系统等保级别", "security_level", false, "select"},
-			{"是否关键信息基础设施", "is_critical_infra", false, "select"},
+			{"是否关键信息基础设施", "is_critical_infra", false, "boolean"},
 			// 数据基本情况 (7字段)
 			{"数据名称", "data_name", false, "text"},
 			{"数据项", "data_items", false, "text"},
@@ -339,13 +372,13 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			{"数据处理目的", "processing_purpose", false, "text"},
 			{"数据使用范围", "usage_scope", false, "text"},
 			{"数据共享范围和方式", "sharing_scope", false, "text"},
-			{"数据是否出境", "is_cross_border", false, "select"},
-			{"是否开展数据出境安全评估", "has_cross_border_assessment", false, "select"},
+			{"数据是否出境", "is_cross_border", false, "boolean"},
+			{"是否开展数据出境安全评估", "has_cross_border_assessment", false, "boolean"},
 			{"数据出境安全评估结果", "assessment_result", false, "text"},
 			// 个人信息基本情况 (3字段)
-			{"包含个人信息要素", "has_personal_info_elements", false, "select"},
+			{"包含个人信息要素", "has_personal_info_elements", false, "boolean"},
 			{"个人信息规模（人）", "personal_info_scale", false, "number"},
-			{"是否包含敏感个人信息", "has_sensitive_personal", false, "select"},
+			{"是否包含敏感个人信息", "has_sensitive_personal", false, "boolean"},
 			// 安全措施 (2字段)
 			{"数据安全防护措施", "security_measures", false, "text"},
 			{"备注", "remarks", false, "text"},
@@ -506,15 +539,15 @@ func getExampleData(assetType string) []string {
 	case "data":
 		return []string{
 			// 网络安全等保和关键信息基础设施安全保护情况 (3字段)
-			"××系统", "二级", "false",
+			"××系统", "二级", "否",
 			// 数据基本情况 (7字段)
 			"出租车辆信息", "车牌号、运营证编号", "一般3级", "数据库", "共享交换", "86.52", "9712",
 			// 责任人员 (4字段)
 			"××市××单位", "张三", "李四", "18512345678",
 			// 数据处理情况 (6字段)
-			"营运车辆数据管理", "××市交通管理部门", "共享交管部门", "false", "false", "",
+			"营运车辆数据管理", "××市交通管理部门", "共享交管部门", "否", "否", "",
 			// 个人信息基本情况 (3字段)
-			"true", "5000", "false",
+			"是", "5000", "否",
 			// 安全措施 (2字段)
 			"加密存储、定期异地备份", "无",
 		}
@@ -532,7 +565,7 @@ func getExampleData(assetType string) []string {
 		}
 	case "software-stat":
 		return []string{
-			"2026", "信息技术部", "张三", "13800000000", "010-12345678", "2026-05-11", "true",
+			"2026", "信息技术部", "张三", "13800000000", "010-12345678", "2026-05-11", "是",
 			"500", "480", "10", "400", "100",
 			"50", "25000", "0", "0",
 			"50", "15000", "0", "0",

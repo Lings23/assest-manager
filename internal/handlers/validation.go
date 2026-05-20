@@ -30,10 +30,11 @@ func ValidateAssetData(assetType string, data map[string]interface{}) error {
 // validateSystemInfo 校验信息系统清单
 func validateSystemInfo(data map[string]interface{}) error {
 	// 必填字段列表（匹配前端 required: true 配置）
+	// 注意：interface_scope 是条件必填，单独处理
 	requiredFields := []string{
 		"system_name", "deploy_location", "network_name", "network_type",
 		"run_status", "build_time", "has_media_platform", "mobile_app_type",
-		"domain_or_ip", "subsystems", "has_external_interface", "interface_scope",
+		"domain_or_ip", "subsystems", "has_external_interface",
 		"supervisory_dept", "app_responsible_dept", "network_responsible_dept",
 		"maintenance_mode", "construction_dept", "system_contact",
 		"security_contact", "admin_contact", "maintenance_vendor",
@@ -47,6 +48,18 @@ func validateSystemInfo(data map[string]interface{}) error {
 		val, exists := data[field]
 		if !exists || val == nil || val == "" {
 			return fmt.Errorf("字段 %s 不能为空", getFieldLabel(field))
+		}
+	}
+
+	// 条件校验：当 has_external_interface 为"是"时，interface_scope 必填
+	hasInterfaceVal := data["has_external_interface"]
+	if hasInterfaceVal != nil {
+		strVal := fmt.Sprintf("%v", hasInterfaceVal)
+		if strVal == "是" {
+			interfaceScope, exists := data["interface_scope"]
+			if !exists || interfaceScope == nil || interfaceScope == "" {
+				return fmt.Errorf("字段 对接范围和方式 不能为空")
+			}
 		}
 	}
 

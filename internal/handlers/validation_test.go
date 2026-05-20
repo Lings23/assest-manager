@@ -82,6 +82,44 @@ func TestValidateSystemInfo_HasExternalInterface(t *testing.T) {
 	}
 }
 
+// TestValidateSystemInfo_InterfaceScopeConditional 测试 interface_scope 条件校验
+func TestValidateSystemInfo_InterfaceScopeConditional(t *testing.T) {
+	tests := []struct {
+		name            string
+		hasInterface    string
+		interfaceScope  string
+		wantErr         bool
+		errMsg          string
+	}{
+		{"有对接-有范围", "是", "档案系统API", false, ""},
+		{"有对接-无范围", "是", "", true, "字段 对接范围和方式 不能为空"},
+		{"无对接-有范围", "否", "无", false, ""},
+		{"无对接-无范围", "否", "", false, ""}, // 无对接时，范围可选
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := completeSystemInfoData()
+			data["has_external_interface"] = tt.hasInterface
+			data["interface_scope"] = tt.interfaceScope
+
+			err := validateSystemInfo(data)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("预期错误 '%s'，实际通过", tt.errMsg)
+				} else if !containsStr(err.Error(), tt.errMsg) {
+					t.Errorf("预期错误包含 '%s'，实际错误 '%v'", tt.errMsg, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("预期通过，实际错误: %v", err)
+				}
+			}
+		})
+	}
+}
+
 // TestValidateSystemInfo_MissingRequiredFields 测试必填字段缺失
 func TestValidateSystemInfo_MissingRequiredFields(t *testing.T) {
 	requiredFields := []struct {
@@ -97,7 +135,6 @@ func TestValidateSystemInfo_MissingRequiredFields(t *testing.T) {
 		{"domain_or_ip", "域名或IP"},
 		{"subsystems", "子系统"},
 		{"has_external_interface", "是否与外部系统对接"},
-		{"interface_scope", "对接范围和方式"},
 		{"supervisory_dept", "主管部门"},
 		{"app_responsible_dept", "应用系统运行责任部门"},
 		{"security_level", "等级保护定级情况"},

@@ -87,8 +87,8 @@ export default {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label><span class="required">*</span>对接范围和方式</label>
-                    <input type="text" id="field-interface_scope" required placeholder="如：档案管理系统 API接口">
+                    <label>对接范围和方式</label>
+                    <input type="text" id="field-interface_scope" placeholder="如：档案管理系统 API接口">
                 </div>
             </div>
         </div>
@@ -182,7 +182,7 @@ export default {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label><span class="required">*</span>网络日志留存情况</label>
+                    <label>网络日志留存情况</label>
                     <input type="text" id="field-log_retention" placeholder="如：6个月">
                 </div>
             </div>
@@ -229,8 +229,8 @@ export default {
                 <div class="form-group">
                     <label><span class="required">*</span>是否涉及云计算部署</label>
                     <select id="field-has_cloud_deploy" required>
-                        <option value="false">否</option>
-                        <option value="true">是</option>
+                        <option value="否">否</option>
+                        <option value="是">是</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -312,7 +312,7 @@ export default {
         { name: 'subsystems', label: '子系统', type: 'text', required: true, section: '网络与对接信息' },
         { name: 'function_modules', label: '功能模块', type: 'text', fullWidth: true, section: '网络与对接信息' },
         { name: 'has_external_interface', label: '是否与外部系统对接', type: 'select', options: ['否', '是'], required: true, section: '网络与对接信息' },
-        { name: 'interface_scope', label: '对接范围和方式', type: 'text', required: true, section: '网络与对接信息' },
+        { name: 'interface_scope', label: '对接范围和方式', type: 'text', section: '网络与对接信息' },
 
         // 责任部门与人员
         { name: 'supervisory_dept', label: '主管部门', type: 'text', required: true, section: '责任部门与人员' },
@@ -344,7 +344,7 @@ export default {
         { name: 'crypto_assessment', label: '本年度密码应用安全性评估情况', type: 'select', options: ['', '符合', '基本符合', '不符合'], section: '等保和密评情况' },
 
         // 云服务情况
-        { name: 'has_cloud_deploy', label: '是否涉及云计算部署', type: 'select', options: ['false', 'true'], required: true, section: '云服务情况' },
+        { name: 'has_cloud_deploy', label: '是否涉及云计算部署', type: 'select', options: ['否', '是'], required: true, section: '云服务情况' },
         { name: 'cloud_provider', label: '云服务提供商名称', type: 'text', section: '云服务情况' },
         { name: 'cloud_security_review', label: '云服务通过云安全审查情况', type: 'select', options: ['', '通过', '未通过', '未参加'], section: '云服务情况' },
 

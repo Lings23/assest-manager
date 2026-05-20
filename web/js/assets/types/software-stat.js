@@ -61,8 +61,8 @@ export default {
                 <div class="form-group">
                     <label><span class="required">*</span>正版化完成</label>
                     <select id="field-is_legalization_done">
-                        <option value="false">否</option>
-                        <option value="true">是</option>
+                        <option value="否">否</option>
+                        <option value="是">是</option>
                     </select>
                 </div>
             </div>
@@ -203,7 +203,7 @@ export default {
         { name: 'department_head', label: '负责人', type: 'text', section: '基本信息' },
         { name: 'head_phone', label: '联系电话', type: 'text', section: '基本信息' },
         { name: 'department_fax', label: '部门传真', type: 'text', section: '基本信息' },
-        { name: 'is_legalization_done', label: '正版化完成', type: 'select', options: ['false', 'true'], required: true, section: '基本信息' },
+        { name: 'is_legalization_done', label: '正版化完成', type: 'select', options: ['否', '是'], required: true, section: '基本信息' },
         { name: 'total_staff_count', label: '总人数', type: 'number', section: '人员设备统计' },
         { name: 'computer_user_count', label: '计算机使用人数', type: 'number', section: '人员设备统计' },
         { name: 'server_count', label: '服务器数量', type: 'number', section: '人员设备统计' },

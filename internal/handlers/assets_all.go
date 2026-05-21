@@ -7,10 +7,85 @@ import (
 	"strconv"
 	"time"
 
+	"asset-manager/internal/utils"
+
 	"github.com/gin-gonic/gin"
 )
 
-// booleanFieldMappings 定义需要布尔转换的字段（按资产类型）
+// enumFieldMappings 定义需要枚举转换的字段（按资产类型）
+var enumFieldMappings = map[string][]string{
+	"system-info": {
+		"network_type",
+		"run_status",
+		"mobile_app_type",
+		"maintenance_mode",
+		"backup_type",
+		"security_level",
+		"security_assessment",
+		"crypto_assessment",
+		"cloud_security_review",
+	},
+	"hardware": {
+		"use_status",
+		"device_status",
+	},
+	"data": {
+		"security_level",
+		"data_classification",
+		"data_source",
+	},
+	"supply-chain": {
+		"supplier_type",
+	},
+	"vulnerability": {
+		"severity",
+		"discovery_method",
+	},
+	"software-stat":    {},
+	"responsible-dept": {},
+}
+
+// convertEnumFields 将枚举字段转换为整数编码
+func convertEnumFields(assetType string, data map[string]interface{}) {
+	fields, ok := enumFieldMappings[assetType]
+	if !ok {
+		return
+	}
+
+	for _, field := range fields {
+		if val, exists := data[field]; exists {
+			switch v := val.(type) {
+			case string:
+				// 字符串类型：可能是中文文本或数字编码字符串
+				// 先尝试从中文文本转换
+				if code := utils.TextToCode(assetType, field, v); code >= 0 {
+					data[field] = code
+				} else {
+					// 尝试解析数字字符串
+					if num, err := parseStringToInt(v); err == nil {
+						data[field] = num
+					}
+				}
+			case float64:
+				// JSON 数字解析后是 float64，转为 int
+				data[field] = int(v)
+			}
+		}
+	}
+}
+
+// parseStringToInt 将字符串解析为整数
+func parseStringToInt(s string) (int, error) {
+	var result int
+	for _, c := range s {
+		if c >= '0' && c <= '9' {
+			result = result*10 + int(c-'0')
+		} else {
+			return 0, fmt.Errorf("不是有效的数字")
+		}
+	}
+	return result, nil
+}
 var booleanFieldMappings = map[string][]string{
 	"system-info": {
 		"has_external_interface",
@@ -317,6 +392,8 @@ func CreateAsset(db *sql.DB) gin.HandlerFunc {
 
 		// 转换布尔字段（将"是"/"否"转为 true/false）
 		convertBooleanFields(assetType, data)
+			// 转换枚举字段（将字符串编码转为 int）
+			convertEnumFields(assetType, data)
 		// 数据校验
 		if err := ValidateAssetData(assetType, data); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
@@ -392,6 +469,8 @@ func UpdateAsset(db *sql.DB) gin.HandlerFunc {
 
 		// 转换布尔字段（将"是"/"否"转为 true/false）
 		convertBooleanFields(assetType, data)
+			// 转换枚举字段（将字符串编码转为 int）
+			convertEnumFields(assetType, data)
 
 		// 数据校验（更新时校验提交的字段）
 		if err := ValidateAssetData(assetType, data); err != nil {

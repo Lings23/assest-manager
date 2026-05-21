@@ -29,19 +29,19 @@ export default {
                 <div class="form-group">
                     <label><span class="required">*</span>网络类型</label>
                     <select id="field-network_type" required>
-                        <option value="互联网">互联网</option>
-                        <option value="专网">专网</option>
-                        <option value="互联网+专网">互联网+专网</option>
+                        <option value="0">互联网</option>
+                        <option value="1">专网</option>
+                        <option value="2">互联网+专网</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label><span class="required">*</span>运行状态</label>
                     <select id="field-run_status" required>
-                        <option value="正式运行">正式运行</option>
-                        <option value="试运行">试运行</option>
-                        <option value="在建">在建</option>
-                        <option value="临时下线">临时下线</option>
-                        <option value="停用">停用</option>
+                        <option value="0">正式运行</option>
+                        <option value="1">试运行</option>
+                        <option value="2">在建</option>
+                        <option value="3">临时下线</option>
+                        <option value="4">停用</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -55,11 +55,11 @@ export default {
                 <div class="form-group">
                     <label><span class="required">*</span>移动互联网应用程序</label>
                     <select id="field-mobile_app_type" required>
-                        <option value="否">否</option>
-                        <option value="APP">APP</option>
-                        <option value="小程序">小程序</option>
-                        <option value="快应用">快应用</option>
-                        <option value="其他">其他</option>
+                        <option value="0">否</option>
+                        <option value="1">APP</option>
+                        <option value="2">小程序</option>
+                        <option value="3">快应用</option>
+                        <option value="4">其他</option>
                     </select>
                 </div>
             </div>
@@ -110,9 +110,9 @@ export default {
                 <div class="form-group">
                     <label><span class="required">*</span>运维模式</label>
                     <select id="field-maintenance_mode" required>
-                        <option value="现场运维">现场运维</option>
-                        <option value="远程运维">远程运维</option>
-                        <option value="现场+远程运维">现场+远程运维</option>
+                        <option value="0">现场运维</option>
+                        <option value="1">远程运维</option>
+                        <option value="2">现场+远程运维</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -175,10 +175,10 @@ export default {
                 <div class="form-group">
                     <label><span class="required">*</span>备份类型</label>
                     <select id="field-backup_type" required>
-                        <option value="数据灾备">数据灾备</option>
-                        <option value="系统灾备">系统灾备</option>
-                        <option value="数据灾备+系统灾备">数据灾备+系统灾备</option>
-                        <option value="无灾备">无灾备</option>
+                        <option value="0">数据灾备</option>
+                        <option value="1">系统灾备</option>
+                        <option value="2">数据灾备+系统灾备</option>
+                        <option value="3">无灾备</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -193,10 +193,10 @@ export default {
                 <div class="form-group">
                     <label><span class="required">*</span>等级保护定级情况</label>
                     <select id="field-security_level" required>
-                        <option value="一级">一级</option>
-                        <option value="二级">二级</option>
-                        <option value="三级">三级</option>
-                        <option value="未定级">未定级</option>
+                        <option value="0">一级</option>
+                        <option value="1">二级</option>
+                        <option value="2">三级</option>
+                        <option value="3">未定级</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -206,19 +206,19 @@ export default {
                 <div class="form-group">
                     <label>本年度等保测评情况</label>
                     <select id="field-security_assessment">
-                        <option value="">未测评</option>
-                        <option value="符合">符合</option>
-                        <option value="基本符合">基本符合</option>
-                        <option value="不符合">不符合</option>
+                        <option value="0">未测评</option>
+                        <option value="1">符合</option>
+                        <option value="2">基本符合</option>
+                        <option value="3">不符合</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>本年度密码应用安全性评估情况</label>
                     <select id="field-crypto_assessment">
-                        <option value="">未评估</option>
-                        <option value="符合">符合</option>
-                        <option value="基本符合">基本符合</option>
-                        <option value="不符合">不符合</option>
+                        <option value="0">未评估</option>
+                        <option value="1">符合</option>
+                        <option value="2">基本符合</option>
+                        <option value="3">不符合</option>
                     </select>
                 </div>
             </div>
@@ -240,10 +240,10 @@ export default {
                 <div class="form-group">
                     <label>云服务通过云安全审查情况</label>
                     <select id="field-cloud_security_review">
-                        <option value="">未涉及</option>
-                        <option value="通过">通过</option>
-                        <option value="未通过">未通过</option>
-                        <option value="未参加">未参加</option>
+                        <option value="0">未涉及</option>
+                        <option value="1">通过</option>
+                        <option value="2">未通过</option>
+                        <option value="3">未参加</option>
                     </select>
                 </div>
             </div>
@@ -301,11 +301,11 @@ export default {
         { name: 'system_name', label: '系统名称', type: 'text', required: true, section: '基本信息' },
         { name: 'deploy_location', label: '部署地点', type: 'text', required: true, section: '基本信息' },
         { name: 'network_name', label: '网络名称', type: 'text', required: true, section: '基本信息' },
-        { name: 'network_type', label: '网络类型', type: 'select', options: ['互联网', '专网', '互联网+专网'], required: true, section: '基本信息' },
-        { name: 'run_status', label: '运行状态', type: 'select', options: ['正式运行', '试运行', '在建', '临时下线', '停用'], required: true, section: '基本信息' },
+        { name: 'network_type', label: '网络类型', type: 'select', options: [0, 1, 2], optionLabels: ['互联网', '专网', '互联网+专网'], required: true, section: '基本信息' },
+        { name: 'run_status', label: '运行状态', type: 'select', options: [0, 1, 2, 3, 4], optionLabels: ['正式运行', '试运行', '在建', '临时下线', '停用'], required: true, section: '基本信息' },
         { name: 'build_time', label: '建成时间', type: 'date', required: true, section: '基本信息' },
         { name: 'has_media_platform', label: '涉及政务新媒体平台', type: 'text', required: true, section: '基本信息' },
-        { name: 'mobile_app_type', label: '移动互联网应用程序', type: 'select', options: ['否', 'APP', '小程序', '快应用', '其他'], required: true, section: '基本信息' },
+        { name: 'mobile_app_type', label: '移动互联网应用程序', type: 'select', options: [0, 1, 2, 3, 4], optionLabels: ['否', 'APP', '小程序', '快应用', '其他'], required: true, section: '基本信息' },
 
         // 网络与对接信息
         { name: 'domain_or_ip', label: '域名或IP', type: 'text', required: true, section: '网络与对接信息' },
@@ -318,7 +318,7 @@ export default {
         { name: 'supervisory_dept', label: '主管部门', type: 'text', required: true, section: '责任部门与人员' },
         { name: 'app_responsible_dept', label: '应用系统运行责任部门', type: 'text', required: true, section: '责任部门与人员' },
         { name: 'network_responsible_dept', label: '基础网络运行责任部门', type: 'text', required: true, section: '责任部门与人员' },
-        { name: 'maintenance_mode', label: '运维模式', type: 'select', options: ['现场运维', '远程运维', '现场+远程运维'], required: true, section: '责任部门与人员' },
+        { name: 'maintenance_mode', label: '运维模式', type: 'select', options: [0, 1, 2], optionLabels: ['现场运维', '远程运维', '现场+远程运维'], required: true, section: '责任部门与人员' },
         { name: 'construction_dept', label: '建设部门', type: 'text', required: true, section: '责任部门与人员' },
         { name: 'system_contact', label: '系统责任人及联系方式', type: 'text', required: true, section: '责任部门与人员' },
         { name: 'security_contact', label: '安全管理员及联系方式', type: 'text', required: true, section: '责任部门与人员' },
@@ -334,19 +334,19 @@ export default {
         { name: 'important_data_risk', label: '重要数据风险评估结论', type: 'text', section: '数据与安全信息' },
 
         // 备份情况
-        { name: 'backup_type', label: '备份类型', type: 'select', options: ['数据灾备', '系统灾备', '数据灾备+系统灾备', '无灾备'], required: true, section: '备份情况' },
+        { name: 'backup_type', label: '备份类型', type: 'select', options: [0, 1, 2, 3], optionLabels: ['数据灾备', '系统灾备', '数据灾备+系统灾备', '无灾备'], required: true, section: '备份情况' },
         { name: 'log_retention', label: '网络日志留存情况', type: 'text', section: '备份情况' },
 
         // 等保和密评情况
-        { name: 'security_level', label: '等保级别', type: 'select', options: ['一级', '二级', '三级', '未定级'], required: true, section: '等保和密评情况' },
+        { name: 'security_level', label: '等保级别', type: 'select', options: [0, 1, 2, 3], optionLabels: ['一级', '二级', '三级', '未定级'], required: true, section: '等保和密评情况' },
         { name: 'security_record_no', label: '等保备案号', type: 'text', required: true, section: '等保和密评情况' },
-        { name: 'security_assessment', label: '本年度等保测评情况', type: 'select', options: ['', '符合', '基本符合', '不符合'], section: '等保和密评情况' },
-        { name: 'crypto_assessment', label: '本年度密码应用安全性评估情况', type: 'select', options: ['', '符合', '基本符合', '不符合'], section: '等保和密评情况' },
+        { name: 'security_assessment', label: '本年度等保测评情况', type: 'select', options: [0, 1, 2, 3], optionLabels: ['未测评', '符合', '基本符合', '不符合'], section: '等保和密评情况' },
+        { name: 'crypto_assessment', label: '本年度密码应用安全性评估情况', type: 'select', options: [0, 1, 2, 3], optionLabels: ['未评估', '符合', '基本符合', '不符合'], section: '等保和密评情况' },
 
         // 云服务情况
         { name: 'has_cloud_deploy', label: '是否涉及云计算部署', type: 'select', options: ['否', '是'], required: true, section: '云服务情况' },
         { name: 'cloud_provider', label: '云服务提供商名称', type: 'text', section: '云服务情况' },
-        { name: 'cloud_security_review', label: '云服务通过云安全审查情况', type: 'select', options: ['', '通过', '未通过', '未参加'], section: '云服务情况' },
+        { name: 'cloud_security_review', label: '云服务通过云安全审查情况', type: 'select', options: [0, 1, 2, 3], optionLabels: ['未涉及', '通过', '未通过', '未参加'], section: '云服务情况' },
 
         // 供应链情况
         { name: 'security_devices', label: '安全设备', type: 'textarea', fullWidth: true, section: '供应链情况' },

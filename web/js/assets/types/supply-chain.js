@@ -21,15 +21,15 @@ export default {
                 <div class="form-group">
                     <label><span class="required">*</span>供应商类型</label>
                     <select id="field-supplier_type">
-                        <option value="设计方">设计方</option>
-                        <option value="开发方">开发方</option>
-                        <option value="承建方">承建方</option>
-                        <option value="网络安全产品提供方">网络安全产品提供方</option>
-                        <option value="信息化产品提供方">信息化产品提供方</option>
-                        <option value="运维方">运维方</option>
-                        <option value="安全服务提供方">安全服务提供方</option>
-                        <option value="信息安全评测方">信息安全评测方</option>
-                        <option value="其他参与方">其他参与方</option>
+                        <option value="0">设计方</option>
+                        <option value="1">开发方</option>
+                        <option value="2">承建方</option>
+                        <option value="3">网络安全产品提供方</option>
+                        <option value="4">信息化产品提供方</option>
+                        <option value="5">运维方</option>
+                        <option value="6">安全服务提供方</option>
+                        <option value="7">信息安全评测方</option>
+                        <option value="8">其他参与方</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -76,7 +76,7 @@ export default {
 
     fields: [
         { name: 'system_name', label: '系统名称', type: 'text', required: true, section: '基本信息' },
-        { name: 'supplier_type', label: '供应商类型', type: 'select', options: ['设计方', '开发方', '承建方', '网络安全产品提供方', '信息化产品提供方', '运维方', '安全服务提供方', '信息安全评测方', '其他参与方'], required: true, section: '基本信息' },
+        { name: 'supplier_type', label: '供应商类型', type: 'select', options: [0, 1, 2, 3, 4, 5, 6, 7, 8], optionLabels: ['设计方', '开发方', '承建方', '网络安全产品提供方', '信息化产品提供方', '运维方', '安全服务提供方', '信息安全评测方', '其他参与方'], required: true, section: '基本信息' },
         { name: 'company_name', label: '企业名称', type: 'text', required: true, section: '基本信息' },
         { name: 'province_city', label: '省市', type: 'text', required: true, section: '基本信息' },
         { name: 'address', label: '详细地址', type: 'text', required: true, fullWidth: true, section: '联系信息' },

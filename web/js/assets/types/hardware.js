@@ -62,18 +62,18 @@ export default {
                 <div class="form-group">
                     <label><span class="required">*</span>使用状态</label>
                     <select id="field-use_status" required>
-                        <option value="在网">在网</option>
-                        <option value="不在网">不在网</option>
-                        <option value="闲置">闲置</option>
-                        <option value="报废">报废</option>
+                        <option value="0">在网</option>
+                        <option value="1">不在网</option>
+                        <option value="2">闲置</option>
+                        <option value="3">报废</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>设备状态</label>
                     <select id="field-device_status">
-                        <option value="正常">正常</option>
-                        <option value="故障">故障</option>
-                        <option value="维修中">维修中</option>
+                        <option value="0">正常</option>
+                        <option value="1">故障</option>
+                        <option value="2">维修中</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -138,8 +138,8 @@ export default {
         { name: 'responsible_person', label: '责任人', type: 'text', required: true, section: '人员与位置信息' },
         { name: 'user', label: '使用人', type: 'text', section: '人员与位置信息' },
         { name: 'location', label: '存放地点/部署位置', type: 'text', required: true, section: '人员与位置信息' },
-        { name: 'use_status', label: '使用状态', type: 'select', options: ['在网', '不在网', '闲置', '报废'], required: true, section: '人员与位置信息' },
-        { name: 'device_status', label: '设备状态', type: 'select', options: ['正常', '故障', '维修中'], section: '人员与位置信息' },
+        { name: 'use_status', label: '使用状态', type: 'select', options: [0, 1, 2, 3], optionLabels: ['在网', '不在网', '闲置', '报废'], required: true, section: '人员与位置信息' },
+        { name: 'device_status', label: '设备状态', type: 'select', options: [0, 1, 2], optionLabels: ['正常', '故障', '维修中'], section: '人员与位置信息' },
         { name: 'network', label: '运行网络', type: 'text', section: '人员与位置信息' },
         { name: 'ip_address', label: 'IP地址', type: 'text', section: '网络与系统信息' },
         { name: 'mac_address', label: 'MAC地址', type: 'text', required: true, section: '网络与系统信息' },

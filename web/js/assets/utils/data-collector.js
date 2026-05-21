@@ -67,6 +67,10 @@ export function fillFormData(type, data) {
             // 处理不同类型元素
             if (field.type === 'checkbox') {
                 field.checked = Boolean(data[key]);
+            } else if (field.type === 'date') {
+                // 日期类型需要转换为 YYYY-MM-DD 格式
+                const normalizedDate = normalizeDateString(data[key]);
+                field.value = normalizedDate;
             } else if (field.tagName === 'SELECT') {
                 // select 元素，处理布尔值
                 if (typeof data[key] === 'boolean') {
@@ -79,6 +83,35 @@ export function fillFormData(type, data) {
             }
         }
     });
+}
+
+/**
+ * 将日期字符串转换为 YYYY-MM-DD 格式
+ * 支持：YYYY-MM-DD, YYYY/M/D, YYYY/M/DD, YYYY/MM/D 等
+ * @param {string} dateStr - 原始日期字符串
+ * @returns {string} - YYYY-MM-DD 格式，或空字符串（无效日期）
+ */
+function normalizeDateString(dateStr) {
+    if (!dateStr || typeof dateStr !== 'string') {
+        return '';
+    }
+
+    // 已经是标准格式 YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return dateStr;
+    }
+
+    // 处理 YYYY/M/D 或 YYYY/M/DD 等格式
+    const match = dateStr.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    if (match) {
+        const year = match[1];
+        const month = match[2].padStart(2, '0');
+        const day = match[3].padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // 无法解析，返回原值（可能显示为空）
+    return dateStr;
 }
 
 /**

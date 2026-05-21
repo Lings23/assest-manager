@@ -7,9 +7,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"asset-manager/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/text/encoding/simplifiedchinese"
@@ -139,7 +143,7 @@ func ImportAsset(db *sql.DB) gin.HandlerFunc {
 				}
 				if i < len(record) && record[i] != "" {
 					columnsForInsert = append(columnsForInsert, col.dbColumn)
-					values = append(values, convertValueByType(record[i], col.fieldType))
+					values = append(values, convertValueByType(record[i], col.fieldType, assetType, col.dbColumn))
 					placeholders = append(placeholders, "?")
 				}
 			}
@@ -229,8 +233,8 @@ type ColumnInfo struct {
 }
 
 // convertValueByType 根据字段类型转换值
-// 支持中文"是/否"转换为布尔值
-func convertValueByType(value string, fieldType string) interface{} {
+// 支持中文"是/否"转换为布尔值，枚举文本转换为数字编码，日期格式标准化
+func convertValueByType(value string, fieldType string, assetType string, fieldName string) interface{} {
 	if value == "" {
 		return nil
 	}
@@ -238,7 +242,6 @@ func convertValueByType(value string, fieldType string) interface{} {
 	switch fieldType {
 	case "boolean":
 		// 中文"是/否"、英文"true/false"、数字转换
-		// 统一转小写处理，支持拼写错误（如FALSE、FLASE）
 		lowerVal := strings.ToLower(strings.TrimSpace(value))
 		switch lowerVal {
 		case "是", "yes", "true", "1":
@@ -248,16 +251,79 @@ func convertValueByType(value string, fieldType string) interface{} {
 		default:
 			return false
 		}
+	case "enum":
+		// 枚举文本转换为数字编码
+		code := utils.TextToCode(assetType, fieldName, value)
+		if code == -1 {
+			// 无法识别的文本，返回原值让验证层报错
+			return value
+		}
+		return code
 	case "number":
-		// 数值类型保持字符串（SQLite会自动转换）
 		return value
 	case "date":
-		// 日期格式保持字符串
-		return value
+		// 日期格式标准化：将 YYYY/M/D 转换为 YYYY-MM-DD
+		return normalizeDateString(value)
 	default:
-		// text, select 等类型保持原值
 		return value
 	}
+}
+
+// normalizeDateString 将各种日期格式转换为 YYYY-MM-DD
+// 支持：YYYY-MM-DD, YYYY/M/D, YYYY/M/DD, YYYY/MM/D 等
+func normalizeDateString(dateStr string) string {
+	if dateStr == "" {
+		return ""
+	}
+
+	// 已经是标准格式 YYYY-MM-DD
+	if matched, _ := regexpMatchString(`^\d{4}-\d{2}-\d{2}$`, dateStr); matched {
+		return dateStr
+	}
+
+	// 处理 YYYY/M/D 或 YYYY/MM/DD 等格式（使用斜杠分隔）
+	// 也处理 YYYY-M-D 格式（单数字月/日）
+	pattern := `^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})$`
+	if matched, matches := regexpFindStringSubmatch(pattern, dateStr); matched {
+		year := matches[1]
+		month := matches[2]
+		day := matches[3]
+
+		// 补零
+		if len(month) == 1 {
+			month = "0" + month
+		}
+		if len(day) == 1 {
+			day = "0" + day
+		}
+
+		return year + "-" + month + "-" + day
+	}
+
+	// 无法解析，返回原值
+	return dateStr
+}
+
+// regexpMatchString 封装正则匹配，避免在函数外导入 regexp 包
+func regexpMatchString(pattern, s string) (bool, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return false, err
+	}
+	return re.MatchString(s), nil
+}
+
+// regexpFindStringSubmatch 封装正则提取
+func regexpFindStringSubmatch(pattern, s string) (bool, []string) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return false, nil
+	}
+	matches := re.FindStringSubmatch(s)
+	if matches == nil {
+		return false, nil
+	}
+	return true, matches
 }
 
 // getAssetColumns 获取资产类型的字段配置
@@ -269,11 +335,11 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			{"系统名称", "system_name", true, "text"},
 			{"部署地点", "deploy_location", true, "text"},
 			{"网络名称", "network_name", true, "text"},
-			{"网络类型", "network_type", true, "select"},
-			{"运行状态", "run_status", true, "select"},
+			{"网络类型", "network_type", true, "enum"},
+			{"运行状态", "run_status", true, "enum"},
 			{"建成时间", "build_time", true, "date"},
 			{"政务新媒体平台", "has_media_platform", true, "boolean"},
-			{"移动互联网应用", "mobile_app_type", true, "select"},
+			{"移动互联网应用", "mobile_app_type", true, "enum"},
 			// 网络与对接信息 (5字段)
 			{"域名或IP", "domain_or_ip", true, "text"},
 			{"子系统", "subsystems", true, "text"},
@@ -284,7 +350,7 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			{"主管部门", "supervisory_dept", true, "text"},
 			{"应用责任部门", "app_responsible_dept", true, "text"},
 			{"网络责任部门", "network_responsible_dept", true, "text"},
-			{"运维模式", "maintenance_mode", true, "select"},
+			{"运维模式", "maintenance_mode", true, "enum"},
 			{"建设部门", "construction_dept", true, "text"},
 			{"系统责任人", "system_contact", true, "text"},
 			{"安全管理员", "security_contact", true, "text"},
@@ -298,17 +364,17 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			{"是否含个人信息", "has_personal_info", true, "boolean"},
 			{"重要数据风险评估", "important_data_risk", false, "text"},
 			// 备份情况 (2字段)
-			{"备份类型", "backup_type", true, "select"},
+			{"备份类型", "backup_type", true, "enum"},
 			{"日志留存", "log_retention", false, "text"},
 			// 等保和密评情况 (4字段)
-			{"等保级别", "security_level", true, "select"},
+			{"等保级别", "security_level", true, "enum"},
 			{"等保备案号", "security_record_no", true, "text"},
-			{"等保测评情况", "security_assessment", false, "select"},
-			{"密评情况", "crypto_assessment", false, "select"},
+			{"等保测评情况", "security_assessment", false, "enum"},
+			{"密评情况", "crypto_assessment", false, "enum"},
 			// 云服务情况 (3字段)
 			{"是否云部署", "has_cloud_deploy", true, "boolean"},
 			{"云服务商", "cloud_provider", false, "text"},
-			{"云安全审查", "cloud_security_review", false, "select"},
+			{"云安全审查", "cloud_security_review", false, "enum"},
 			// 供应链情况 (8字段)
 			{"安全设备", "security_devices", false, "text"},
 			{"网络设备", "network_devices", false, "text"},
@@ -335,8 +401,8 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			{"责任人", "responsible_person", true, "text"},
 			{"使用人", "user", false, "text"},
 			{"存放地点/部署位置", "location", true, "text"},
-			{"使用状态", "use_status", true, "select"},
-			{"设备状态", "device_status", false, "select"},
+			{"使用状态", "use_status", true, "enum"},
+			{"设备状态", "device_status", false, "enum"},
 			{"运行网络", "network", false, "text"},
 			// 网络与系统信息 (3字段)
 			{"IP地址", "ip_address", false, "text"},
@@ -353,14 +419,14 @@ func getAssetColumns(assetType string) []ColumnInfo {
 		return []ColumnInfo{
 			// 网络安全等保和关键信息基础设施安全保护情况 (3字段)
 			{"数据来源信息系统名称", "source_system", false, "text"},
-			{"数据来源信息系统等保级别", "security_level", false, "select"},
+			{"数据来源信息系统等保级别", "security_level", false, "enum"},
 			{"是否关键信息基础设施", "is_critical_infra", false, "boolean"},
 			// 数据基本情况 (7字段)
 			{"数据名称", "data_name", false, "text"},
 			{"数据项", "data_items", false, "text"},
-			{"数据级别", "data_classification", false, "select"},
+			{"数据级别", "data_classification", false, "enum"},
 			{"数据载体", "data_carrier", false, "text"},
-			{"数据来源", "data_source", false, "select"},
+			{"数据来源", "data_source", false, "enum"},
 			{"数据规模(GB)", "data_size", false, "number"},
 			{"数据条数", "data_count", false, "number"},
 			// 责任人员 (4字段)
@@ -386,7 +452,7 @@ func getAssetColumns(assetType string) []ColumnInfo {
 	case "supply-chain":
 		return []ColumnInfo{
 			{"系统名称", "system_name", true, "text"},
-			{"供应商类型", "supplier_type", true, "select"},
+			{"供应商类型", "supplier_type", true, "enum"},
 			{"企业名称", "company_name", true, "text"},
 			{"省市", "province_city", true, "text"},
 			{"详细地址", "address", true, "text"},
@@ -400,9 +466,9 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			{"系统名称", "system_name", true, "text"},
 			{"漏洞名称", "vulnerability_name", true, "text"},
 			{"发现日期", "discovery_date", true, "date"},
-			{"发现方式", "discovery_method", false, "select"},
+			{"发现方式", "discovery_method", false, "enum"},
 			{"涉及设备", "affected_device", true, "text"},
-			{"漏洞等级", "severity", false, "select"},
+			{"漏洞等级", "severity", false, "enum"},
 			{"风险描述", "risk_description", true, "text"},
 			{"风险影响", "risk_impact", true, "text"},
 			{"整改建议", "remediation_suggestion", false, "text"},
@@ -579,6 +645,7 @@ func getExampleData(assetType string) []string {
 }
 
 // ExportAssetToCSV 导出资产为CSV（带BOM头）
+// 导出时将枚举数字编码转换为中文文本，表头使用中文
 func ExportAssetToCSV(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		assetType := c.Param("type")
@@ -608,7 +675,22 @@ func ExportAssetToCSV(db *sql.DB) gin.HandlerFunc {
 		}
 		defer rows.Close()
 
-		columns, _ := rows.Columns()
+		dbColumns, _ := rows.Columns()
+
+		// 获取字段配置，用于判断枚举类型、布尔类型和获取中文表头
+		columnConfigs := getAssetColumns(assetType)
+		enumFieldMap := make(map[string]bool)
+		booleanFieldMap := make(map[string]bool)
+		headerNameMap := make(map[string]string)
+		for _, col := range columnConfigs {
+			if col.fieldType == "enum" {
+				enumFieldMap[col.dbColumn] = true
+			}
+			if col.fieldType == "boolean" {
+				booleanFieldMap[col.dbColumn] = true
+			}
+			headerNameMap[col.dbColumn] = col.name
+		}
 
 		// 设置响应头，带BOM头
 		c.Header("Content-Type", "text/csv; charset=utf-8")
@@ -620,22 +702,85 @@ func ExportAssetToCSV(db *sql.DB) gin.HandlerFunc {
 
 		writer := csv.NewWriter(c.Writer)
 
-		// 写入表头
-		writer.Write(columns)
+		// 写入表头（使用中文表头名）
+		chineseHeaders := []string{}
+		for _, colName := range dbColumns {
+			if headerNameMap[colName] != "" {
+				chineseHeaders = append(chineseHeaders, headerNameMap[colName])
+			} else {
+				switch colName {
+				case "id":
+					chineseHeaders = append(chineseHeaders, "ID")
+				case "created_by":
+					chineseHeaders = append(chineseHeaders, "创建人")
+				case "created_at":
+					chineseHeaders = append(chineseHeaders, "创建时间")
+				case "updated_at":
+					chineseHeaders = append(chineseHeaders, "更新时间")
+				case "is_deleted":
+					chineseHeaders = append(chineseHeaders, "已删除")
+				default:
+					chineseHeaders = append(chineseHeaders, colName)
+				}
+			}
+		}
+		writer.Write(chineseHeaders)
 
 		// 写入数据
 		for rows.Next() {
-			values := make([]interface{}, len(columns))
-			valuePtrs := make([]interface{}, len(columns))
+			values := make([]interface{}, len(dbColumns))
+			valuePtrs := make([]interface{}, len(dbColumns))
 			for i := range values {
 				valuePtrs[i] = &values[i]
 			}
 			rows.Scan(valuePtrs...)
 
 			strValues := []string{}
-			for _, val := range values {
+			for i, val := range values {
+				colName := dbColumns[i]
 				if val == nil {
 					strValues = append(strValues, "")
+				} else if enumFieldMap[colName] {
+					// 枚举字段：将数字编码转换为中文文本
+					code := 0
+					switch v := val.(type) {
+					case int:
+						code = v
+					case int64:
+						code = int(v)
+					case float64:
+						code = int(v)
+					case []byte:
+						// SQLite 可能返回字符串类型的数字，需要解析
+						if num, err := strconv.Atoi(string(v)); err == nil {
+							code = num
+						}
+					case string:
+						// 字符串类型的数字，需要解析
+						if num, err := strconv.Atoi(v); err == nil {
+							code = num
+						}
+					}
+					text := utils.CodeToText(assetType, colName, code)
+					strValues = append(strValues, text)
+				} else if booleanFieldMap[colName] {
+					// 布尔字段：将 0/1 转换为 "否"/"是"
+					boolVal := false
+					switch v := val.(type) {
+					case int:
+						boolVal = v != 0
+					case int64:
+						boolVal = v != 0
+					case float64:
+						boolVal = v != 0
+					case bool:
+						boolVal = v
+					}
+					if boolVal {
+						strValues = append(strValues, "是")
+					} else {
+						strValues = append(strValues, "否")
+					}
 				} else if b, ok := val.([]byte); ok {
 					strValues = append(strValues, string(b))
 				} else {

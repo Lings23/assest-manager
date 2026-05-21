@@ -4,6 +4,7 @@
  */
 
 import { getAssetConfig } from '../index.js';
+import { getEnumText, isEnumField } from '../enum-mappings.js';
 
 /**
  * 获取表格表头HTML
@@ -35,10 +36,20 @@ export function renderTableRow(type, asset) {
     const displayFields = config.tableFields || ['id', 'name'];
     const cells = displayFields.map(field => {
         const value = asset[field];
-        // 处理特殊显示
-        if (field === 'is_legalization_done' || field === 'is_critical_infra') {
+
+        // 处理枚举字段：将数字编码转换为中文文本
+        if (isEnumField(type, field)) {
+            const text = getEnumText(type, field, value);
+            return `<td>${text || '-'}</td>`;
+        }
+
+        // 处理布尔字段
+        if (field === 'is_legalization_done' || field === 'is_critical_infra' ||
+            field === 'has_external_interface' || field === 'has_personal_info' ||
+            field === 'has_cloud_deploy' || field === 'has_media_platform') {
             return `<td>${value ? '是' : '否'}</td>`;
         }
+
         return `<td>${value || '-'}</td>`;
     });
 

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"asset-manager/internal/utils"
 )
 
 // ValidateAssetData 通用资产数据校验
@@ -63,24 +64,21 @@ func validateSystemInfo(data map[string]interface{}) error {
 		}
 	}
 
-	// 枚举值校验（只在字段存在且有值时校验）
-	enumValidations := map[string][]string{
-		"network_type":           {"互联网", "专网", "互联网+专网"},
-		"run_status":             {"正式运行", "试运行", "在建", "临时下线", "停用"},
-		"mobile_app_type":        {"否", "APP", "小程序", "快应用", "其他"},
-		"has_external_interface": {"否", "是"},
-		"maintenance_mode":       {"现场运维", "远程运维", "现场+远程运维"},
-		"has_personal_info":      {"否", "是"},
-		"backup_type":            {"数据灾备", "系统灾备", "数据灾备+系统灾备", "无灾备"},
-		"security_level":         {"一级", "二级", "三级", "未定级"},
+	// 枚举值校验（验证数字编码范围）
+	enumFields := []string{
+		"network_type",
+		"run_status",
+		"mobile_app_type",
+		"maintenance_mode",
+		"backup_type",
+		"security_level",
 	}
 
-	for field, allowed := range enumValidations {
+	for _, field := range enumFields {
 		val, exists := data[field]
-		if exists && val != nil && val != "" {
-			strVal := fmt.Sprintf("%v", val)
-			if !contains(allowed, strVal) {
-				return fmt.Errorf("字段 %s 的值 '%s' 不合法，可选值：%v", getFieldLabel(field), strVal, allowed)
+		if exists && val != nil {
+			if err := validateEnumValue("system-info", field, val); err != nil {
+				return err
 			}
 		}
 	}
@@ -118,17 +116,13 @@ func validateHardware(data map[string]interface{}) error {
 		}
 	}
 
-	// 枚举校验
-	enumValidations := map[string][]string{
-		"use_status":    {"在网", "不在网", "闲置", "报废"},
-		"device_status": {"正常", "故障", "维修中"},
-	}
+	// 枚举校验（验证数字编码）
+	enumFields := []string{"use_status", "device_status"}
 
-	for field, allowed := range enumValidations {
-		if val, exists := data[field]; exists && val != nil && val != "" {
-			strVal := fmt.Sprintf("%v", val)
-			if !contains(allowed, strVal) {
-				return fmt.Errorf("字段 %s 的值不合法，可选值：%v", getFieldLabel(field), allowed)
+	for _, field := range enumFields {
+		if val, exists := data[field]; exists && val != nil {
+			if err := validateEnumValue("hardware", field, val); err != nil {
+				return err
 			}
 		}
 	}
@@ -175,17 +169,13 @@ func validateVulnerability(data map[string]interface{}) error {
 		}
 	}
 
-	// 枚举校验
-	enumValidations := map[string][]string{
-		"severity":         {"高", "中", "低"},
-		"discovery_method": {"渗透", "漏扫", "第三方通报"},
-	}
+	// 枚举校验（验证数字编码）
+	enumFields := []string{"severity", "discovery_method"}
 
-	for field, allowed := range enumValidations {
-		if val, exists := data[field]; exists && val != nil && val != "" {
-			strVal := fmt.Sprintf("%v", val)
-			if !contains(allowed, strVal) {
-				return fmt.Errorf("字段 %s 的值不合法，可选值：%v", getFieldLabel(field), allowed)
+	for _, field := range enumFields {
+		if val, exists := data[field]; exists && val != nil {
+			if err := validateEnumValue("vulnerability", field, val); err != nil {
+				return err
 			}
 		}
 	}
@@ -346,12 +336,50 @@ func getFieldLabel(field string) string {
 	return field
 }
 
-// contains 检查字符串是否在列表中
-func contains(list []string, target string) bool {
-	for _, item := range list {
-		if item == target {
-			return true
-		}
+// validateEnumCode 验证枚举数字编码是否在有效范围内
+// 返回 nil 表示有效，返回 error 表示无效
+func validateEnumCode(assetType, fieldName string, code int) error {
+	mapping := utils.GetEnumMapping(assetType, fieldName)
+	if mapping == nil {
+		// 不是枚举字段，跳过验证
+		return nil
 	}
-	return false
+
+	// 检查编码是否在映射中存在
+	if _, exists := mapping[code]; exists {
+		return nil
+	}
+
+	// 编码无效，返回错误
+	return fmt.Errorf("字段 %s 的值 %d 不合法", getFieldLabel(fieldName), code)
+}
+
+// validateEnumValue 验证枚举值（支持 int、float64 和 string 类型）
+func validateEnumValue(assetType, fieldName string, val interface{}) error {
+	var code int
+	switch v := val.(type) {
+	case int:
+		code = v
+	case int64:
+		code = int(v)
+	case float64:
+		code = int(v)
+	case string:
+		// 字符串类型的数字编码，尝试转换
+		// 如果是中文文本，则转换为编码
+		if codeFromText := utils.TextToCode(assetType, fieldName, v); codeFromText >= 0 {
+			code = codeFromText
+		} else {
+			// 尝试解析为数字
+			var err error
+			code, err = parseStringToInt(v)
+			if err != nil {
+				return fmt.Errorf("字段 %s 的值 '%s' 不是有效的枚举值", getFieldLabel(fieldName), v)
+			}
+		}
+	default:
+		// 不是支持的类型
+		return fmt.Errorf("字段 %s 的值类型不正确", getFieldLabel(fieldName))
+	}
+	return validateEnumCode(assetType, fieldName, code)
 }

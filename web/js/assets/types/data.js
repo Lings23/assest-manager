@@ -22,9 +22,9 @@ export default {
                 <div class="form-group">
                     <label>数据来源信息系统等保级别</label>
                     <select id="field-security_level">
-                        <option value="一级">一级</option>
-                        <option value="二级">二级</option>
-                        <option value="三级">三级</option>
+                        <option value="0">一级</option>
+                        <option value="1">二级</option>
+                        <option value="2">三级</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -50,11 +50,11 @@ export default {
                 <div class="form-group">
                     <label>数据级别</label>
                     <select id="field-data_classification">
-                        <option value="">无</option>
-                        <option value="重要数据">重要数据</option>
-                        <option value="一般3级">一般3级</option>
-                        <option value="一般2级">一般2级</option>
-                        <option value="一般1级">一般1级</option>
+                        <option value="0">无</option>
+                        <option value="1">重要数据</option>
+                        <option value="2">一般3级</option>
+                        <option value="3">一般2级</option>
+                        <option value="4">一般1级</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -64,8 +64,8 @@ export default {
                 <div class="form-group">
                     <label>数据来源</label>
                     <select id="field-data_source">
-                        <option value="共享交换">共享交换</option>
-                        <option value="人工填报">人工填报</option>
+                        <option value="0">共享交换</option>
+                        <option value="1">人工填报</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -175,15 +175,15 @@ export default {
     fields: [
         // 网络安全等保和关键信息基础设施安全保护情况
         { name: 'source_system', label: '数据来源信息系统名称', type: 'text', section: '网络安全等保和关键信息基础设施安全保护情况' },
-        { name: 'security_level', label: '数据来源信息系统等保级别', type: 'select', options: ['一级', '二级', '三级'], section: '网络安全等保和关键信息基础设施安全保护情况' },
+        { name: 'security_level', label: '数据来源信息系统等保级别', type: 'select', options: [0, 1, 2], optionLabels: ['一级', '二级', '三级'], section: '网络安全等保和关键信息基础设施安全保护情况' },
         { name: 'is_critical_infra', label: '是否关键信息基础设施', type: 'select', options: ['否', '是'], section: '网络安全等保和关键信息基础设施安全保护情况' },
 
         // 数据基本情况
         { name: 'data_name', label: '数据名称', type: 'text', section: '数据基本情况' },
         { name: 'data_items', label: '数据项', type: 'textarea', fullWidth: true, section: '数据基本情况' },
-        { name: 'data_classification', label: '数据级别', type: 'select', options: ['', '重要数据', '一般3级', '一般2级', '一般1级'], section: '数据基本情况' },
+        { name: 'data_classification', label: '数据级别', type: 'select', options: [0, 1, 2, 3, 4], optionLabels: ['无', '重要数据', '一般3级', '一般2级', '一般1级'], section: '数据基本情况' },
         { name: 'data_carrier', label: '数据载体', type: 'text', section: '数据基本情况' },
-        { name: 'data_source', label: '数据来源', type: 'select', options: ['共享交换', '人工填报'], section: '数据基本情况' },
+        { name: 'data_source', label: '数据来源', type: 'select', options: [0, 1], optionLabels: ['共享交换', '人工填报'], section: '数据基本情况' },
         { name: 'data_size', label: '数据规模(GB)', type: 'number', section: '数据基本情况' },
         { name: 'data_count', label: '数据条数', type: 'number', section: '数据基本情况' },
 

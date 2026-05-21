@@ -34,11 +34,11 @@ type SystemInfoAsset struct {
 	Subsystems             string    `json:"subsystems" gorm:"type:text"`
 	DeployLocation         string    `json:"deploy_location" gorm:"size:200;not null"`
 	NetworkName            string    `json:"network_name" gorm:"size:100;not null"`
-	NetworkType            string    `json:"network_type" gorm:"size:50;not null"`
-	RunStatus              string    `json:"run_status" gorm:"size:50;not null"`
+	NetworkType            int       `json:"network_type" gorm:"not null"` // 0-2: 互联网/专网/互联网+专网
+	RunStatus              int       `json:"run_status" gorm:"not null"`   // 0-4: 正式运行/试运行/在建/临时下线/停用
 	BuildTime              string    `json:"build_time" gorm:"size:20;not null"`
 	HasMediaPlatform       bool      `json:"has_media_platform" gorm:"default:false"`
-	MobileAppType          string    `json:"mobile_app_type" gorm:"size:50"`
+	MobileAppType          int       `json:"mobile_app_type"` // 0-4: 否/APP/小程序/快应用/其他
 	DomainOrIP             string    `json:"domain_or_ip" gorm:"size:200;not null"`
 	FunctionModules        string    `json:"function_modules" gorm:"type:text"`
 	HasExternalInterface   bool      `json:"has_external_interface" gorm:"default:false"`
@@ -46,7 +46,7 @@ type SystemInfoAsset struct {
 	SupervisoryDept        string    `json:"supervisory_dept" gorm:"size:100;not null"`
 	AppResponsibleDept     string    `json:"app_responsible_dept" gorm:"size:100;not null"`
 	NetworkResponsibleDept string    `json:"network_responsible_dept" gorm:"size:100;not null"`
-	MaintenanceMode        string    `json:"maintenance_mode" gorm:"size:50;not null"`
+	MaintenanceMode        int       `json:"maintenance_mode" gorm:"not null"` // 0-2: 现场运维/远程运维/现场+远程运维
 	ConstructionDept       string    `json:"construction_dept" gorm:"size:100;not null"`
 	MaintenanceVendor      string    `json:"maintenance_vendor" gorm:"size:100"`
 	IntegrationVendor      string    `json:"integration_vendor" gorm:"size:100"`
@@ -60,12 +60,12 @@ type SystemInfoAsset struct {
 	DataStorageLocation    string    `json:"data_storage_location" gorm:"size:100;not null"`
 	HasCloudDeploy         bool      `json:"has_cloud_deploy" gorm:"default:false"`
 	CloudProvider          string    `json:"cloud_provider" gorm:"size:100"`
-	CloudSecurityReview    string    `json:"cloud_security_review" gorm:"size:50"`
-	SecurityLevel          string    `json:"security_level" gorm:"size:50;not null"`
+	CloudSecurityReview    int       `json:"cloud_security_review"` // 0-3: 空/通过/未通过/未参加
+	SecurityLevel          int       `json:"security_level" gorm:"not null"` // 0-3: 一级/二级/三级/未定级
 	SecurityRecordNo       string    `json:"security_record_no" gorm:"size:100"`
-	SecurityAssessment     string    `json:"security_assessment" gorm:"size:50"`
-	CryptoAssessment       string    `json:"crypto_assessment" gorm:"size:50"`
-	BackupType             string    `json:"backup_type" gorm:"size:50;not null"`
+	SecurityAssessment     int       `json:"security_assessment"`     // 0-3: 空/符合/基本符合/不符合
+	CryptoAssessment       int       `json:"crypto_assessment"`       // 0-3: 空/符合/基本符合/不符合
+	BackupType             int       `json:"backup_type" gorm:"not null"` // 0-3: 数据灾备/系统灾备/数据灾备+系统灾备/无灾备
 	LogRetention           string    `json:"log_retention" gorm:"size:50;not null"`
 	SecurityDevices        string    `json:"security_devices" gorm:"type:text"`
 	NetworkDevices         string    `json:"network_devices" gorm:"type:text"`
@@ -94,8 +94,8 @@ type HardwareSoftwareAsset struct {
 	ResponsiblePerson string   `json:"responsible_person" gorm:"size:50;not null"`
 	User             string    `json:"user" gorm:"size:50"`
 	Location         string    `json:"location" gorm:"size:200;not null"`
-	UseStatus        string    `json:"use_status" gorm:"size:50;not null"`
-	DeviceStatus     string    `json:"device_status" gorm:"size:50;not null"`
+	UseStatus        int       `json:"use_status" gorm:"not null"` // 0-3: 在网/不在网/闲置/报废
+	DeviceStatus     int       `json:"device_status"`              // 0-2: 正常/故障/维修中
 	Network          string    `json:"network" gorm:"size:100;not null"`
 	IPAddress        string    `json:"ip_address" gorm:"size:50"`
 	MACAddress       string    `json:"mac_address" gorm:"size:50"`
@@ -115,13 +115,13 @@ type HardwareSoftwareAsset struct {
 type DataAsset struct {
 	ID                        uint      `json:"id" gorm:"primaryKey"`
 	SourceSystem              string    `json:"source_system" gorm:"size:200;not null"`
-	SecurityLevel             string    `json:"security_level" gorm:"size:50;not null"`
+	SecurityLevel             int       `json:"security_level"` // 0-2: 一级/二级/三级
 	IsCriticalInfra           bool      `json:"is_critical_infra" gorm:"default:false"`
 	DataName                  string    `json:"data_name" gorm:"size:200;not null"`
 	DataItems                 string    `json:"data_items" gorm:"type:text;not null"`
-	DataClassification        string    `json:"data_classification" gorm:"size:50;not null"`
+	DataClassification        int       `json:"data_classification"` // 0-4: 空/重要数据/一般3级/一般2级/一般1级
 	DataCarrier               string    `json:"data_carrier" gorm:"size:100;not null"`
-	DataSource                string    `json:"data_source" gorm:"size:50;not null"`
+	DataSource                int       `json:"data_source"` // 0-1: 共享交换/人工填报
 	DataSize                  float64   `json:"data_size"`
 	DataCount                 int       `json:"data_count"`
 	ProcessorName             string    `json:"processor_name" gorm:"size:200;not null"`
@@ -152,7 +152,7 @@ type DataAsset struct {
 type SupplyChainAsset struct {
 	ID            uint      `json:"id" gorm:"primaryKey"`
 	SystemName    string    `json:"system_name" gorm:"size:200;not null"`
-	SupplierType  string    `json:"supplier_type" gorm:"size:50;not null"`
+	SupplierType  int       `json:"supplier_type" gorm:"not null"` // 0-8: 设计方/开发方/承建方等
 	CompanyName   string    `json:"company_name" gorm:"size:200;not null"`
 	ProvinceCity  string    `json:"province_city" gorm:"size:100;not null"`
 	Address       string    `json:"address" gorm:"size:300;not null"`
@@ -171,14 +171,14 @@ type VulnerabilityAsset struct {
 	ID                  uint      `json:"id" gorm:"primaryKey"`
 	SystemName          string    `json:"system_name" gorm:"size:200;not null"`
 	DiscoveryDate       string    `json:"discovery_date" gorm:"size:20;not null"`
-	DiscoveryMethod     string    `json:"discovery_method" gorm:"size:50;not null"`
+	DiscoveryMethod     int       `json:"discovery_method"` // 0-2: 渗透/漏扫/第三方通报
 	AffectedDevice      string    `json:"affected_device" gorm:"type:text;not null"`
 	VulnerabilityName   string    `json:"vulnerability_name" gorm:"size:200;not null"`
 	CVENumber           string    `json:"cve_number" gorm:"size:50"`
 	CNVDNumber          string    `json:"cnvd_number" gorm:"size:50"`
 	Domain              string    `json:"domain" gorm:"size:200"`
 	IPAddress           string    `json:"ip_address" gorm:"size:50"`
-	Severity            string    `json:"severity" gorm:"size:20;not null"`
+	Severity            int       `json:"severity"` // 0-2: 高/中/低
 	Protocol            string    `json:"protocol" gorm:"size:20"`
 	Port                int       `json:"port"`
 	VulnType            string    `json:"vuln_type" gorm:"size:100"`

@@ -59,7 +59,7 @@ func SetupRoutes(db *sql.DB, webFS http.FileSystem) *gin.Engine {
 			assets.GET("/:id", handlers.GetAsset(db))
 			assets.PUT("/:id", handlers.UpdateAsset(db))
 			assets.DELETE("/:id", middleware.AdminOnly(), handlers.DeleteAsset(db))
-			assets.GET("/export", handlers.ExportAsset(db))
+			assets.GET("/export", handlers.ExportAssetToCSV(db))
 			assets.POST("/import", handlers.ImportAsset(db))
 			assets.GET("/template", handlers.DownloadTemplate(db))
 		}

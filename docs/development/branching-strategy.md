@@ -28,10 +28,12 @@ Codex 创建的工作分支使用 `codex/` 前缀。阶段基线、自动化或�
 ## 合并与发布
 
 1. 功能 Pull Request 以 `develop` 为目标分支。
-2. Go、Vue、OpenAPI、生成一致性、安全扫描和适用的 Compose 验收必须通过。
+2. 普通 Pull Request 只要求快速 `quality` 检查和旧系统冻结检查通过。
 3. 阶段退出条件全部通过后，创建 `develop -> master` 发布 Pull Request。
-4. 发布 Pull Request 合并后创建阶段标签，并在 `改造状态.md` 记录验证证据。
+4. 合入 `master` 后自动执行竞态、Compose、OpenAPI lint 和完整安全检查；通过后创建阶段标签。
 5. 禁止对 `master`、`develop` 强制推送或直接提交。
+
+完整检查也在每周一和手动触发时执行。小团队日常开发不为每个功能分支重复运行耗时的全量检查。
 
 ## 旧系统冻结
 

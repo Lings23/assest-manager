@@ -1,17 +1,28 @@
 version: 2
+
+multi-ecosystem-groups:
+  monthly-dependencies:
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+
 updates:
   - package-ecosystem: gomod
-    directory: /
-    schedule: { interval: weekly }
-  - package-ecosystem: gomod
-    directory: /platform
-    schedule: { interval: weekly }
+    directories:
+      - /
+      - /platform
+    patterns: ["*"]
+    multi-ecosystem-group: monthly-dependencies
   - package-ecosystem: npm
     directory: /apps/web
-    schedule: { interval: weekly }
+    patterns: ["*"]
+    multi-ecosystem-group: monthly-dependencies
   - package-ecosystem: docker
     directory: /platform
-    schedule: { interval: weekly }
+    patterns: ["*"]
+    multi-ecosystem-group: monthly-dependencies
   - package-ecosystem: github-actions
     directory: /
-    schedule: { interval: weekly }
+    patterns: ["*"]
+    multi-ecosystem-group: monthly-dependencies

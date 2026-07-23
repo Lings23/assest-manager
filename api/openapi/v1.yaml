@@ -1,0 +1,255 @@
+openapi: 3.1.0
+info:
+  title: Asset Governance Platform API
+  version: 1.0.0-baseline
+  description: 阶段一公共契约基线。业务实现将在后续阶段按 Schema 和领域边界接入。
+  license:
+    name: Proprietary
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /health/live:
+    get:
+      summary: 检查进程存活状态
+      operationId: healthLive
+      security: []
+      responses:
+        "200":
+          description: 进程存活
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+  /health/ready:
+    get:
+      summary: 检查服务就绪状态
+      operationId: healthReady
+      security: []
+      responses:
+        "200":
+          description: 服务可接收流量
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+  /auth/login:
+    post:
+      summary: 使用用户名和密码登录
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /auth/refresh:
+    post:
+      summary: 轮换刷新令牌并签发访问令牌
+      operationId: refreshToken
+      security: []
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+  /auth/logout:
+    post:
+      summary: 注销当前会话
+      operationId: logout
+      responses:
+        "204": { description: 已注销 }
+        "401": { $ref: "#/components/responses/Error" }
+  /auth/me:
+    get:
+      summary: 获取当前登录用户
+      operationId: currentUser
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+  /asset-types:
+    get:
+      summary: 查询可用资产类型
+      operationId: listAssetTypes
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+  /asset-types/{type}/schema:
+    parameters:
+      - $ref: "#/components/parameters/AssetType"
+    get:
+      summary: 获取指定资产类型的 Schema
+      operationId: getAssetSchema
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "404": { $ref: "#/components/responses/Error" }
+  /assets/{type}:
+    parameters:
+      - $ref: "#/components/parameters/AssetType"
+    get:
+      summary: 分页查询指定类型资产
+      operationId: listAssets
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+    post:
+      summary: 创建指定类型资产
+      operationId: createAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "201": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/Error" }
+  /assets/{type}/{id}:
+    parameters:
+      - $ref: "#/components/parameters/AssetType"
+      - $ref: "#/components/parameters/ResourceID"
+    get:
+      summary: 获取单条资产
+      operationId: getAsset
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      summary: 更新单条资产
+      operationId: updateAsset
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      summary: 软删除单条资产
+      operationId: deleteAsset
+      responses:
+        "204": { description: 已软删除 }
+        "403": { $ref: "#/components/responses/Error" }
+  /assets/{type}/{id}/restore:
+    parameters:
+      - $ref: "#/components/parameters/AssetType"
+      - $ref: "#/components/parameters/ResourceID"
+    post:
+      summary: 恢复已软删除资产
+      operationId: restoreAsset
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "403": { $ref: "#/components/responses/Error" }
+  /import-jobs:
+    get:
+      summary: 查询导入任务
+      operationId: listImportJobs
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+    post:
+      summary: 创建导入任务
+      operationId: createImportJob
+      responses:
+        "202": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/Error" }
+  /export-jobs:
+    get:
+      summary: 查询导出任务
+      operationId: listExportJobs
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+    post:
+      summary: 创建导出任务
+      operationId: createExportJob
+      responses:
+        "202": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/Error" }
+  /reporting/{report}:
+    parameters:
+      - name: report
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: 获取指定报表
+      operationId: getReport
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+  /workflows/{workflow}:
+    parameters:
+      - name: workflow
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: 获取指定工作流
+      operationId: getWorkflow
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+  /risks/{riskId}:
+    parameters:
+      - name: riskId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: 获取指定风险记录
+      operationId: getRisk
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    AssetType:
+      name: type
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[a-z][a-z0-9-]{1,63}$" }
+    ResourceID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    Health:
+      type: object
+      required: [status, service]
+      properties:
+        status: { type: string }
+        service: { type: string }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 50 }
+        password: { type: string, minLength: 12, maxLength: 256 }
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, request_id]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            request_id: { type: string }
+  responses:
+    Success:
+      description: 请求成功
+      content:
+        application/json:
+          schema: { type: object }
+    Error:
+      description: 标准错误响应
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }

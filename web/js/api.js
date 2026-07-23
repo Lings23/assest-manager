@@ -5,6 +5,21 @@
 
 const API_BASE = '/api';
 
+// Access Token只保存在当前页面内存中，刷新页面后需要重新登录。
+let accessToken = null;
+
+export function setAccessToken(token) {
+    accessToken = token || null;
+}
+
+export function getAccessToken() {
+    return accessToken;
+}
+
+export function clearAccessToken() {
+    accessToken = null;
+}
+
 /**
  * 封装fetch请求，自动添加认证token和错误处理
  * @param {string} url - API路径（不含/api前缀）
@@ -18,7 +33,7 @@ export async function apiRequest(url, options = {}) {
     };
 
     // 添加认证token
-    const token = localStorage.getItem('token');
+	const token = getAccessToken();
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
@@ -42,7 +57,7 @@ export async function apiRequest(url, options = {}) {
  * @returns {Promise<object>} - API响应数据
  */
 export async function apiRequestWithFile(url, formData) {
-    const token = localStorage.getItem('token');
+	const token = getAccessToken();
     const headers = {};
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -54,7 +69,11 @@ export async function apiRequestWithFile(url, formData) {
         body: formData
     });
 
-    return await response.json();
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.message || '导入请求失败');
+    }
+    return data;
 }
 
 /**
@@ -63,12 +82,10 @@ export async function apiRequestWithFile(url, formData) {
  * @param {string} filename - 下载文件名
  */
 export async function apiDownload(url, filename) {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`${API_BASE}${url}`, {
-        headers: {
-            'Authorization': `Bearer ${token}`
-        }
-    });
+	const token = getAccessToken();
+	const headers = {};
+	if (token) headers.Authorization = `Bearer ${token}`;
+	const response = await fetch(`${API_BASE}${url}`, { headers });
 
     if (!response.ok) {
         throw new Error('下载失败');

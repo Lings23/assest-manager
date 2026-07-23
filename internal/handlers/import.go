@@ -6,7 +6,9 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,6 +20,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
+
+const maxImportFileSize int64 = 50 << 20
 
 // ImportAsset 通用资产导入
 func ImportAsset(db *sql.DB) gin.HandlerFunc {
@@ -31,10 +35,30 @@ func ImportAsset(db *sql.DB) gin.HandlerFunc {
 
 		userID, _ := c.Get("user_id")
 
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxImportFileSize)
+
 		// 获取上传的文件
 		file, err := c.FormFile("file")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请上传文件"})
+			status := http.StatusBadRequest
+			message := "请上传不超过50MiB的CSV文件"
+			if strings.Contains(strings.ToLower(err.Error()), "too large") {
+				status = http.StatusRequestEntityTooLarge
+			}
+			c.JSON(status, gin.H{"code": status, "message": message})
+			return
+		}
+		if !strings.EqualFold(filepath.Ext(file.Filename), ".csv") {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "仅支持CSV文件"})
+			return
+		}
+		contentType := strings.ToLower(strings.TrimSpace(strings.Split(file.Header.Get("Content-Type"), ";")[0]))
+		allowedContentTypes := map[string]bool{
+			"": true, "text/csv": true, "application/csv": true,
+			"application/vnd.ms-excel": true, "application/octet-stream": true,
+		}
+		if !allowedContentTypes[contentType] {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "文件类型不是CSV"})
 			return
 		}
 
@@ -130,22 +154,35 @@ func ImportAsset(db *sql.DB) gin.HandlerFunc {
 				continue
 			}
 
-			// 构建插入语句
+			// 转换为与API创建接口相同的数据结构并复用业务校验。
 			columnsForInsert := []string{}
 			values := []interface{}{}
 			placeholders := []string{}
+			assetData := make(map[string]interface{})
+			conversionFailed := false
 
 			for i, col := range columns {
-				if col.required && i < len(record) && record[i] == "" {
-					errors = append(errors, fmt.Sprintf("第%d行：字段%s不能为空", lineNum, col.name))
-					errorCount++
-					continue
-				}
 				if i < len(record) && record[i] != "" {
+					converted, convErr := convertValueByType(record[i], col.fieldType, assetType, col.dbColumn)
+					if convErr != nil {
+						errors = append(errors, fmt.Sprintf("第%d行：字段%s - %s", lineNum, col.name, convErr.Error()))
+						errorCount++
+						conversionFailed = true
+						break
+					}
 					columnsForInsert = append(columnsForInsert, col.dbColumn)
-					values = append(values, convertValueByType(record[i], col.fieldType, assetType, col.dbColumn))
+					values = append(values, converted)
 					placeholders = append(placeholders, "?")
+					assetData[col.dbColumn] = converted
 				}
+			}
+			if conversionFailed {
+				continue
+			}
+			if err := ValidateAssetData(assetType, assetData); err != nil {
+				errors = append(errors, fmt.Sprintf("第%d行：%s", lineNum, err.Error()))
+				errorCount++
+				continue
 			}
 
 			// 添加系统字段
@@ -161,7 +198,8 @@ func ImportAsset(db *sql.DB) gin.HandlerFunc {
 
 			_, err = db.Exec(query, values...)
 			if err != nil {
-				errors = append(errors, fmt.Sprintf("第%d行：插入失败 - %s", lineNum, err.Error()))
+				log.Printf("import %s line %d failed: %v", assetType, lineNum, err)
+				errors = append(errors, fmt.Sprintf("第%d行：写入数据库失败", lineNum))
 				errorCount++
 				continue
 			}
@@ -171,10 +209,11 @@ func ImportAsset(db *sql.DB) gin.HandlerFunc {
 
 		// 返回结果
 		result := gin.H{
-			"code":          200,
-			"message":       fmt.Sprintf("导入完成：成功%d条，失败%d条", successCount, errorCount),
-			"success_count": successCount,
-			"error_count":   errorCount,
+			"code":            200,
+			"message":         fmt.Sprintf("导入完成：成功%d条，失败%d条", successCount, errorCount),
+			"success_count":   successCount,
+			"error_count":     errorCount,
+			"partial_success": successCount > 0 && errorCount > 0,
 		}
 
 		if len(errors) > 0 {
@@ -234,9 +273,10 @@ type ColumnInfo struct {
 
 // convertValueByType 根据字段类型转换值
 // 支持中文"是/否"转换为布尔值，枚举文本转换为数字编码，日期格式标准化
-func convertValueByType(value string, fieldType string, assetType string, fieldName string) interface{} {
+func convertValueByType(value string, fieldType string, assetType string, fieldName string) (interface{}, error) {
+	value = strings.TrimSpace(value)
 	if value == "" {
-		return nil
+		return nil, nil
 	}
 
 	switch fieldType {
@@ -244,28 +284,47 @@ func convertValueByType(value string, fieldType string, assetType string, fieldN
 		// 中文"是/否"、英文"true/false"、数字转换
 		lowerVal := strings.ToLower(strings.TrimSpace(value))
 		switch lowerVal {
-		case "是", "yes", "true", "1":
-			return true
-		case "否", "no", "false", "0":
-			return false
+		case "是", "有", "yes", "true", "1":
+			return true, nil
+		case "否", "无", "no", "false", "0":
+			return false, nil
 		default:
-			return false
+			return nil, fmt.Errorf("必须为是或否")
 		}
 	case "enum":
-		// 枚举文本转换为数字编码
 		code := utils.TextToCode(assetType, fieldName, value)
 		if code == -1 {
-			// 无法识别的文本，返回原值让验证层报错
-			return value
+			parsed, err := strconv.Atoi(value)
+			if err != nil {
+				return nil, fmt.Errorf("不是有效的枚举值")
+			}
+			code = parsed
 		}
-		return code
+		if err := validateEnumCode(assetType, fieldName, code); err != nil {
+			return nil, err
+		}
+		return code, nil
 	case "number":
-		return value
+		if strings.ContainsAny(value, ".eE") {
+			number, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				return nil, fmt.Errorf("必须为数字")
+			}
+			return number, nil
+		}
+		number, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("必须为数字")
+		}
+		return number, nil
 	case "date":
-		// 日期格式标准化：将 YYYY/M/D 转换为 YYYY-MM-DD
-		return normalizeDateString(value)
+		normalized := normalizeDateString(value)
+		if _, err := time.Parse("2006-01-02", normalized); err != nil {
+			return nil, fmt.Errorf("必须为有效的YYYY-MM-DD日期")
+		}
+		return normalized, nil
 	default:
-		return value
+		return value, nil
 	}
 }
 
@@ -345,7 +404,7 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			{"子系统", "subsystems", true, "text"},
 			{"功能模块", "function_modules", false, "text"},
 			{"是否外部对接", "has_external_interface", true, "boolean"},
-			{"对接范围", "interface_scope", true, "text"},
+			{"对接范围", "interface_scope", false, "text"},
 			// 责任部门与人员 (11字段)
 			{"主管部门", "supervisory_dept", true, "text"},
 			{"应用责任部门", "app_responsible_dept", true, "text"},
@@ -466,9 +525,9 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			{"系统名称", "system_name", true, "text"},
 			{"漏洞名称", "vulnerability_name", true, "text"},
 			{"发现日期", "discovery_date", true, "date"},
-			{"发现方式", "discovery_method", false, "enum"},
+			{"发现方式", "discovery_method", true, "enum"},
 			{"涉及设备", "affected_device", true, "text"},
-			{"漏洞等级", "severity", false, "enum"},
+			{"漏洞等级", "severity", true, "enum"},
 			{"风险描述", "risk_description", true, "text"},
 			{"风险影响", "risk_impact", true, "text"},
 			{"整改建议", "remediation_suggestion", false, "text"},
@@ -480,7 +539,7 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			{"端口", "port", false, "number"},
 			{"漏洞类型", "vuln_type", false, "text"},
 			{"整改措施", "remediation_measure", false, "text"},
-			{"整改完成时间", "completion_date", false, "date"},
+			{"整改完成时间", "completion_date", true, "date"},
 		}
 	case "software-stat":
 		return []ColumnInfo{
@@ -529,6 +588,15 @@ func getAssetColumns(assetType string) []ColumnInfo {
 			// 日志与审计
 			{"修改日志", "modification_log", false, "text"},
 		}
+	case "responsible-dept":
+		return []ColumnInfo{
+			{"责任部门名称", "department_name", true, "text"},
+			{"部门编码", "department_code", false, "text"},
+			{"部门负责人", "department_head", false, "text"},
+			{"负责人电话", "head_phone", false, "text"},
+			{"部门传真", "department_fax", false, "text"},
+			{"备注", "remarks", false, "text"},
+		}
 	default:
 		return []ColumnInfo{}
 	}
@@ -569,7 +637,7 @@ func getExampleData(assetType string) []string {
 		return []string{
 			// 基本信息 (8字段)
 			"OA系统", "6层301中心机房", "办公网", "专网", "正式运行",
-			"2024-01-15", "无", "否",
+			"2024-01-15", "否", "否",
 			// 网络与对接信息 (5字段)
 			"10.0.0.134", "人事系统", "公告、组织架构", "否", "无",
 			// 责任部门与人员 (11字段)
@@ -582,7 +650,7 @@ func getExampleData(assetType string) []string {
 			// 等保和密评情况 (4字段)
 			"二级", "备案号12345", "符合", "符合",
 			// 云服务情况 (3字段)
-			"false", "", "",
+			"否", "", "",
 			// 供应链情况 (8字段)
 			"防火墙|华为|2", "交换机|华为|5", "CentOS 7.9 x3", "MySQL 8.0 x2",
 			"Nginx 1.20", "Spring Boot", "Redis 6.2", "",
@@ -639,6 +707,8 @@ func getExampleData(assetType string) []string {
 			"400", "100", "400", "100", "500", "0",
 			"初始导入导入测试数据",
 		}
+	case "responsible-dept":
+		return []string{"信息技术部", "IT", "张三", "13800000000", "010-12345678", "示例部门"}
 	default:
 		return []string{}
 	}

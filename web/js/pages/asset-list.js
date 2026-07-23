@@ -13,6 +13,7 @@ import { generateForm } from '../assets/utils/form-generator.js';
 import { collectFormData, fillFormData, validateFormData, showValidationError, clearFieldErrors } from '../assets/utils/data-collector.js';
 import { exportData, downloadTemplate } from '../import-export/export.js';
 import { showImportDialog } from '../import-export/import.js';
+import { escapeHTML } from '../utils/html.js';
 
 /**
  * 渲染资产列表页面
@@ -21,23 +22,26 @@ import { showImportDialog } from '../import-export/import.js';
  * @param {string} title - 页面标题
  */
 export async function renderAssetList(container, type, title) {
-    container.innerHTML = `
+	const safeType = escapeHTML(type);
+	const safeTitle = escapeHTML(title);
+	const safeUsername = escapeHTML(currentUser?.username || '');
+	container.innerHTML = `
         <div class="top-bar">
-            <h2>${title}</h2>
+			<h2>${safeTitle}</h2>
             <div>
-                <span class="user-info">${currentUser?.username}</span>
+				<span class="user-info">${safeUsername}</span>
                 <button class="logout-btn" onclick="logout()" style="margin-left: 15px;">退出</button>
             </div>
         </div>
         <div class="card">
             <div class="btn-group">
-                <button class="btn-sm btn-primary" onclick="showCreateForm('${type}')">新增</button>
-                <button class="btn-sm btn-success" onclick="exportData('${type}')">导出</button>
-                <button class="btn-sm btn-warning" onclick="showImportDialog('${type}')">导入</button>
+				<button class="btn-sm btn-primary" onclick="showCreateForm('${safeType}')">新增</button>
+				<button class="btn-sm btn-success" onclick="exportData('${safeType}')">导出</button>
+				<button class="btn-sm btn-warning" onclick="showImportDialog('${safeType}')">导入</button>
             </div>
             <div class="search-bar">
                 <input type="text" id="search-input" placeholder="搜索...">
-                <button class="btn-sm btn-primary" onclick="loadAssetList('${type}', 1)">搜索</button>
+				<button class="btn-sm btn-primary" onclick="loadAssetList('${safeType}', 1)">搜索</button>
             </div>
             <div class="table-container">
                 <table>
@@ -67,11 +71,11 @@ export async function loadAssetList(type, page) {
     const search = document.getElementById('search-input')?.value || '';
 
     try {
-        const data = await apiRequest(`/assets/${type}?page=${page}&page_size=20&search=${search}`);
+		const data = await apiRequest(`/assets/${type}?page=${page}&page_size=20&search=${encodeURIComponent(search)}`);
         renderTable(type, data.data, page, (newPage) => loadAssetList(type, newPage));
     } catch (error) {
         document.getElementById('asset-table-body').innerHTML =
-            `<tr><td colspan="6">加载失败: ${error.message}</td></tr>`;
+			`<tr><td colspan="6">加载失败: ${escapeHTML(error.message)}</td></tr>`;
     }
 }
 

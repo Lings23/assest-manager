@@ -7,36 +7,36 @@ import (
 // TestValidateSystemInfo_Success 测试正常数据校验通过
 func TestValidateSystemInfo_Success(t *testing.T) {
 	data := map[string]interface{}{
-		"system_name":             "OA办公系统",
-		"deploy_location":         "6层301中心机房",
-		"network_name":            "政务内网",
-		"network_type":            "专网",
-		"run_status":              "正式运行",
-		"build_time":              "2023-06-15",
-		"has_media_platform":      "微信公众号",
-		"mobile_app_type":         "小程序",
-		"domain_or_ip":            "10.0.0.134",
-		"subsystems":              "公文管理、公告管理",
-		"has_external_interface":  "是",
-		"interface_scope":         "档案管理系统 API接口",
-		"supervisory_dept":        "信息中心",
-		"app_responsible_dept":    "信息中心",
+		"system_name":              "OA办公系统",
+		"deploy_location":          "6层301中心机房",
+		"network_name":             "政务内网",
+		"network_type":             "专网",
+		"run_status":               "正式运行",
+		"build_time":               "2023-06-15",
+		"has_media_platform":       "是",
+		"mobile_app_type":          "小程序",
+		"domain_or_ip":             "10.0.0.134",
+		"subsystems":               "公文管理、公告管理",
+		"has_external_interface":   "是",
+		"interface_scope":          "档案管理系统 API接口",
+		"supervisory_dept":         "信息中心",
+		"app_responsible_dept":     "信息中心",
 		"network_responsible_dept": "网络运维部",
-		"maintenance_mode":        "现场+远程运维",
-		"construction_dept":       "信息化建设处",
-		"system_contact":          "张三 152xxxx1234",
-		"security_contact":        "李四 135xxxx5678",
-		"admin_contact":           "王五 185xxxx9012",
-		"maintenance_vendor":      "XX科技有限公司",
-		"integration_vendor":      "YY系统集成公司",
-		"development_vendor":      "ZZ软件开发公司",
-		"data_content":            "组织数据、公文数据",
-		"data_storage_location":   "MySQL数据库",
-		"has_personal_info":       "是",
-		"backup_type":             "数据灾备+系统灾备",
-		"security_level":          "三级",
-		"security_record_no":      "3301-2023-0001",
-		"has_cloud_deploy":        "false",
+		"maintenance_mode":         "现场+远程运维",
+		"construction_dept":        "信息化建设处",
+		"system_contact":           "张三 152xxxx1234",
+		"security_contact":         "李四 135xxxx5678",
+		"admin_contact":            "王五 185xxxx9012",
+		"maintenance_vendor":       "XX科技有限公司",
+		"integration_vendor":       "YY系统集成公司",
+		"development_vendor":       "ZZ软件开发公司",
+		"data_content":             "组织数据、公文数据",
+		"data_storage_location":    "MySQL数据库",
+		"has_personal_info":        "是",
+		"backup_type":              "数据灾备+系统灾备",
+		"security_level":           "三级",
+		"security_record_no":       "3301-2023-0001",
+		"has_cloud_deploy":         "false",
 	}
 
 	err := validateSystemInfo(data)
@@ -48,10 +48,10 @@ func TestValidateSystemInfo_Success(t *testing.T) {
 // TestValidateSystemInfo_HasExternalInterface 测试 has_external_interface 字段
 func TestValidateSystemInfo_HasExternalInterface(t *testing.T) {
 	tests := []struct {
-		name     string
-		value    interface{}
-		wantErr  bool
-		errMsg   string
+		name    string
+		value   interface{}
+		wantErr bool
+		errMsg  string
 	}{
 		{"有效值-是", "是", false, ""},
 		{"有效值-否", "否", false, ""},
@@ -85,11 +85,11 @@ func TestValidateSystemInfo_HasExternalInterface(t *testing.T) {
 // TestValidateSystemInfo_InterfaceScopeConditional 测试 interface_scope 条件校验
 func TestValidateSystemInfo_InterfaceScopeConditional(t *testing.T) {
 	tests := []struct {
-		name            string
-		hasInterface    string
-		interfaceScope  string
-		wantErr         bool
-		errMsg          string
+		name           string
+		hasInterface   string
+		interfaceScope string
+		wantErr        bool
+		errMsg         string
 	}{
 		{"有对接-有范围", "是", "档案系统API", false, ""},
 		{"有对接-无范围", "是", "", true, "字段 对接范围和方式 不能为空"},
@@ -123,8 +123,8 @@ func TestValidateSystemInfo_InterfaceScopeConditional(t *testing.T) {
 // TestValidateSystemInfo_MissingRequiredFields 测试必填字段缺失
 func TestValidateSystemInfo_MissingRequiredFields(t *testing.T) {
 	requiredFields := []struct {
-		field    string
-		label    string
+		field string
+		label string
 	}{
 		{"system_name", "系统名称"},
 		{"deploy_location", "部署地点"},
@@ -163,10 +163,10 @@ func TestValidateSystemInfo_MissingRequiredFields(t *testing.T) {
 // TestValidateSystemInfo_EnumValues 测试枚举值校验
 func TestValidateSystemInfo_EnumValues(t *testing.T) {
 	tests := []struct {
-		name     string
-		field    string
-		value    string
-		wantErr  bool
+		name    string
+		field   string
+		value   string
+		wantErr bool
 	}{
 		{"network_type合法-互联网", "network_type", "互联网", false},
 		{"network_type合法-专网", "network_type", "专网", false},
@@ -205,36 +205,36 @@ func TestValidateSystemInfo_EnumValues(t *testing.T) {
 // TestValidateSystemInfo_MinimalData 测试最小合法数据
 func TestValidateSystemInfo_MinimalData(t *testing.T) {
 	data := map[string]interface{}{
-		"system_name":             "测试系统",
-		"deploy_location":         "机房",
-		"network_name":            "内网",
-		"network_type":            "专网",
-		"run_status":              "正式运行",
-		"build_time":              "2023-01-01",
-		"has_media_platform":      "无",
-		"mobile_app_type":         "否",
-		"domain_or_ip":            "10.0.0.1",
-		"subsystems":              "无",
-		"has_external_interface":  "否",
-		"interface_scope":         "无对接",
-		"supervisory_dept":        "信息中心",
-		"app_responsible_dept":    "信息中心",
+		"system_name":              "测试系统",
+		"deploy_location":          "机房",
+		"network_name":             "内网",
+		"network_type":             "专网",
+		"run_status":               "正式运行",
+		"build_time":               "2023-01-01",
+		"has_media_platform":       "否",
+		"mobile_app_type":          "否",
+		"domain_or_ip":             "10.0.0.1",
+		"subsystems":               "无",
+		"has_external_interface":   "否",
+		"interface_scope":          "无对接",
+		"supervisory_dept":         "信息中心",
+		"app_responsible_dept":     "信息中心",
 		"network_responsible_dept": "网络部",
-		"maintenance_mode":        "现场运维",
-		"construction_dept":       "建设部",
-		"system_contact":          "张三 123",
-		"security_contact":        "李四 456",
-		"admin_contact":           "王五 789",
-		"maintenance_vendor":      "厂商A",
-		"integration_vendor":      "厂商B",
-		"development_vendor":      "厂商C",
-		"data_content":            "测试数据",
-		"data_storage_location":   "数据库",
-		"has_personal_info":       "否",
-		"backup_type":             "无灾备",
-		"security_level":          "未定级",
-		"security_record_no":      "无",
-		"has_cloud_deploy":        "false",
+		"maintenance_mode":         "现场运维",
+		"construction_dept":        "建设部",
+		"system_contact":           "张三 123",
+		"security_contact":         "李四 456",
+		"admin_contact":            "王五 789",
+		"maintenance_vendor":       "厂商A",
+		"integration_vendor":       "厂商B",
+		"development_vendor":       "厂商C",
+		"data_content":             "测试数据",
+		"data_storage_location":    "数据库",
+		"has_personal_info":        "否",
+		"backup_type":              "无灾备",
+		"security_level":           "未定级",
+		"security_record_no":       "无",
+		"has_cloud_deploy":         "false",
 	}
 
 	err := validateSystemInfo(data)
@@ -247,10 +247,10 @@ func TestValidateSystemInfo_MinimalData(t *testing.T) {
 func TestValidateAssetData_TypeDispatch(t *testing.T) {
 	// 空数据测试：只有 data 类型无必填字段，其他类型应报错
 	tests := []struct {
-		name    string
+		name      string
 		assetType string
-		data    map[string]interface{}
-		wantErr bool
+		data      map[string]interface{}
+		wantErr   bool
 	}{
 		{"system-info空数据", "system-info", map[string]interface{}{}, true},
 		{"hardware空数据", "hardware", map[string]interface{}{}, true},
@@ -280,19 +280,19 @@ func TestValidateAssetData_TypeDispatch(t *testing.T) {
 func TestValidateHardware(t *testing.T) {
 	t.Run("正常数据", func(t *testing.T) {
 		data := map[string]interface{}{
-			"asset_name":        "服务器",
-			"category":          "服务器",
-			"brand":             "华为",
-			"model":             "RH2288H",
-			"quantity":          2,
-			"department":        "信息中心",
+			"asset_name":         "服务器",
+			"category":           "服务器",
+			"brand":              "华为",
+			"model":              "RH2288H",
+			"quantity":           2,
+			"department":         "信息中心",
 			"responsible_person": "张三",
-			"location":          "机房",
-			"use_status":        "在网",
-			"mac_address":       "00:11:22:33:44:55",
-			"os_version":        "CentOS 7.9",
-			"start_use_date":    "2023-01-01",
-			"asset_life":        "5年",
+			"location":           "机房",
+			"use_status":         "在网",
+			"mac_address":        "00:11:22:33:44:55",
+			"os_version":         "CentOS 7.9",
+			"start_use_date":     "2023-01-01",
+			"asset_life":         "5年",
 		}
 		err := validateHardware(data)
 		if err != nil {
@@ -302,19 +302,19 @@ func TestValidateHardware(t *testing.T) {
 
 	t.Run("数量小于1", func(t *testing.T) {
 		data := map[string]interface{}{
-			"asset_name":        "服务器",
-			"category":          "服务器",
-			"brand":             "华为",
-			"model":             "RH2288H",
-			"quantity":          0,
-			"department":        "信息中心",
+			"asset_name":         "服务器",
+			"category":           "服务器",
+			"brand":              "华为",
+			"model":              "RH2288H",
+			"quantity":           0,
+			"department":         "信息中心",
 			"responsible_person": "张三",
-			"location":          "机房",
-			"use_status":        "在网",
-			"mac_address":       "00:11:22:33:44:55",
-			"os_version":        "CentOS 7.9",
-			"start_use_date":    "2023-01-01",
-			"asset_life":        "5年",
+			"location":           "机房",
+			"use_status":         "在网",
+			"mac_address":        "00:11:22:33:44:55",
+			"os_version":         "CentOS 7.9",
+			"start_use_date":     "2023-01-01",
+			"asset_life":         "5年",
 		}
 		err := validateHardware(data)
 		if err == nil {
@@ -781,19 +781,19 @@ func TestGetFieldLabel(t *testing.T) {
 // completeHardwareData 返回完整的硬件测试数据
 func completeHardwareData() map[string]interface{} {
 	return map[string]interface{}{
-		"asset_name":        "服务器",
-		"category":          "服务器",
-		"brand":             "华为",
-		"model":             "RH2288H",
-		"quantity":          2,
-		"department":        "信息中心",
+		"asset_name":         "服务器",
+		"category":           "服务器",
+		"brand":              "华为",
+		"model":              "RH2288H",
+		"quantity":           2,
+		"department":         "信息中心",
 		"responsible_person": "张三",
-		"location":          "机房",
-		"use_status":        "在网",
-		"mac_address":       "00:11:22:33:44:55",
-		"os_version":        "CentOS 7.9",
-		"start_use_date":    "2023-01-01",
-		"asset_life":        "5年",
+		"location":           "机房",
+		"use_status":         "在网",
+		"mac_address":        "00:11:22:33:44:55",
+		"os_version":         "CentOS 7.9",
+		"start_use_date":     "2023-01-01",
+		"asset_life":         "5年",
 	}
 }
 
@@ -815,36 +815,36 @@ func completeVulnerabilityData() map[string]interface{} {
 // completeSystemInfoData 返回完整的测试数据
 func completeSystemInfoData() map[string]interface{} {
 	return map[string]interface{}{
-		"system_name":             "OA办公系统",
-		"deploy_location":         "6层301中心机房",
-		"network_name":            "政务内网",
-		"network_type":            "专网",
-		"run_status":              "正式运行",
-		"build_time":              "2023-06-15",
-		"has_media_platform":      "微信公众号",
-		"mobile_app_type":         "小程序",
-		"domain_or_ip":            "10.0.0.134",
-		"subsystems":              "公文管理",
-		"has_external_interface":  "是",
-		"interface_scope":         "档案系统",
-		"supervisory_dept":        "信息中心",
-		"app_responsible_dept":    "信息中心",
+		"system_name":              "OA办公系统",
+		"deploy_location":          "6层301中心机房",
+		"network_name":             "政务内网",
+		"network_type":             "专网",
+		"run_status":               "正式运行",
+		"build_time":               "2023-06-15",
+		"has_media_platform":       "是",
+		"mobile_app_type":          "小程序",
+		"domain_or_ip":             "10.0.0.134",
+		"subsystems":               "公文管理",
+		"has_external_interface":   "是",
+		"interface_scope":          "档案系统",
+		"supervisory_dept":         "信息中心",
+		"app_responsible_dept":     "信息中心",
 		"network_responsible_dept": "网络运维部",
-		"maintenance_mode":        "现场+远程运维",
-		"construction_dept":       "信息化建设处",
-		"system_contact":          "张三 152xxxx",
-		"security_contact":        "李四 135xxxx",
-		"admin_contact":           "王五 185xxxx",
-		"maintenance_vendor":      "XX公司",
-		"integration_vendor":      "YY公司",
-		"development_vendor":      "ZZ公司",
-		"data_content":            "组织数据",
-		"data_storage_location":   "MySQL",
-		"has_personal_info":       "是",
-		"backup_type":             "数据灾备+系统灾备",
-		"security_level":          "三级",
-		"security_record_no":      "3301-2023-0001",
-		"has_cloud_deploy":        "false",
+		"maintenance_mode":         "现场+远程运维",
+		"construction_dept":        "信息化建设处",
+		"system_contact":           "张三 152xxxx",
+		"security_contact":         "李四 135xxxx",
+		"admin_contact":            "王五 185xxxx",
+		"maintenance_vendor":       "XX公司",
+		"integration_vendor":       "YY公司",
+		"development_vendor":       "ZZ公司",
+		"data_content":             "组织数据",
+		"data_storage_location":    "MySQL",
+		"has_personal_info":        "是",
+		"backup_type":              "数据灾备+系统灾备",
+		"security_level":           "三级",
+		"security_record_no":       "3301-2023-0001",
+		"has_cloud_deploy":         "false",
 	}
 }
 

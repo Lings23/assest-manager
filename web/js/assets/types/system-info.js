@@ -50,7 +50,10 @@ export default {
                 </div>
                 <div class="form-group">
                     <label><span class="required">*</span>涉及政务新媒体平台</label>
-                    <input type="text" id="field-has_media_platform" required placeholder="如有请填写平台名称">
+					<select id="field-has_media_platform" required>
+						<option value="否">否</option>
+						<option value="是">是</option>
+					</select>
                 </div>
                 <div class="form-group">
                     <label><span class="required">*</span>移动互联网应用程序</label>
@@ -304,7 +307,7 @@ export default {
         { name: 'network_type', label: '网络类型', type: 'select', options: [0, 1, 2], optionLabels: ['互联网', '专网', '互联网+专网'], required: true, section: '基本信息' },
         { name: 'run_status', label: '运行状态', type: 'select', options: [0, 1, 2, 3, 4], optionLabels: ['正式运行', '试运行', '在建', '临时下线', '停用'], required: true, section: '基本信息' },
         { name: 'build_time', label: '建成时间', type: 'date', required: true, section: '基本信息' },
-        { name: 'has_media_platform', label: '涉及政务新媒体平台', type: 'text', required: true, section: '基本信息' },
+		{ name: 'has_media_platform', label: '涉及政务新媒体平台', type: 'select', options: ['否', '是'], required: true, section: '基本信息' },
         { name: 'mobile_app_type', label: '移动互联网应用程序', type: 'select', options: [0, 1, 2, 3, 4], optionLabels: ['否', 'APP', '小程序', '快应用', '其他'], required: true, section: '基本信息' },
 
         // 网络与对接信息

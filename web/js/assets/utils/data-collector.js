@@ -71,10 +71,12 @@ export function fillFormData(type, data) {
                 // 日期类型需要转换为 YYYY-MM-DD 格式
                 const normalizedDate = normalizeDateString(data[key]);
                 field.value = normalizedDate;
-            } else if (field.tagName === 'SELECT') {
-                // select 元素，处理布尔值
-                if (typeof data[key] === 'boolean') {
-                    field.value = data[key] ? 'true' : 'false';
+			} else if (field.tagName === 'SELECT') {
+				// select 元素，处理布尔值
+				if (typeof data[key] === 'boolean') {
+					const localized = data[key] ? '是' : '否';
+					const values = Array.from(field.options).map(option => option.value);
+					field.value = values.includes(localized) ? localized : String(data[key]);
                 } else {
                     field.value = String(data[key]);
                 }

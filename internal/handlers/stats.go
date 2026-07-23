@@ -2,227 +2,163 @@ package handlers
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-// GetStatsSummary 获取统计概览
+type countQuery struct {
+	key   string
+	table string
+	extra string
+}
+
+func statsScope(c *gin.Context) (string, []interface{}) {
+	whereClause := "is_deleted = 0"
+	args := []interface{}{}
+	role, _ := c.Get("role")
+	if role != "admin" {
+		userID, _ := c.Get("user_id")
+		whereClause += " AND created_by = ?"
+		args = append(args, userID)
+	}
+	return whereClause, args
+}
+
+func queryCount(db *sql.DB, table, whereClause string, args ...interface{}) (int, error) {
+	var count int
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s", table, whereClause)
+	if err := db.QueryRow(query, args...).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func queryGroupedStats(db *sql.DB, table, field, whereClause, responseKey string, args ...interface{}) ([]gin.H, error) {
+	query := fmt.Sprintf("SELECT %s, COUNT(*) FROM %s WHERE %s GROUP BY %s", field, table, whereClause, field)
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]gin.H, 0)
+	for rows.Next() {
+		var value interface{}
+		var count int
+		if err := rows.Scan(&value, &count); err != nil {
+			return nil, err
+		}
+		if raw, ok := value.([]byte); ok {
+			value = string(raw)
+		}
+		result = append(result, gin.H{responseKey: value, "count": count})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func statsError(c *gin.Context) {
+	c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "统计查询失败"})
+}
+
+// GetStatsSummary 获取统计概览。
 func GetStatsSummary(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, _ := c.Get("user_id")
-		role, _ := c.Get("role")
-
-		whereClause := "is_deleted = 0"
-		args := []interface{}{}
-
-		if role != "admin" {
-			whereClause += " AND created_by = ?"
-			args = append(args, userID)
+		whereClause, args := statsScope(c)
+		queries := []countQuery{
+			{key: "system_info_count", table: "system_info_assets"},
+			{key: "hardware_count", table: "hardware_software_assets"},
+			{key: "data_asset_count", table: "data_assets"},
+			{key: "supply_chain_count", table: "supply_chain_assets"},
+			{key: "vulnerability_count", table: "vulnerability_assets"},
+			{key: "high_risk_vulns", table: "vulnerability_assets", extra: " AND severity = 0"},
 		}
 
-		// 各表单总数
-		var systemInfoCount, hardwareCount, dataAssetCount, supplyChainCount, vulnCount int
-
-		db.QueryRow("SELECT COUNT(*) FROM system_info_assets WHERE "+whereClause, args...).Scan(&systemInfoCount)
-		db.QueryRow("SELECT COUNT(*) FROM hardware_software_assets WHERE "+whereClause, args...).Scan(&hardwareCount)
-		db.QueryRow("SELECT COUNT(*) FROM data_assets WHERE "+whereClause, args...).Scan(&dataAssetCount)
-		db.QueryRow("SELECT COUNT(*) FROM supply_chain_assets WHERE "+whereClause, args...).Scan(&supplyChainCount)
-		db.QueryRow("SELECT COUNT(*) FROM vulnerability_assets WHERE "+whereClause, args...).Scan(&vulnCount)
-
-		// 高风险漏洞数
-		var highRiskVulns int
-		vulnArgs := append([]interface{}{}, args...)
-		db.QueryRow("SELECT COUNT(*) FROM vulnerability_assets WHERE is_deleted = 0 AND severity = '高'", vulnArgs...).Scan(&highRiskVulns)
-
-		c.JSON(http.StatusOK, gin.H{
-			"code": 200,
-			"data": gin.H{
-				"system_info_count":   systemInfoCount,
-				"hardware_count":      hardwareCount,
-				"data_asset_count":    dataAssetCount,
-				"supply_chain_count":  supplyChainCount,
-				"vulnerability_count": vulnCount,
-				"high_risk_vulns":     highRiskVulns,
-			},
-		})
+		data := gin.H{}
+		for _, item := range queries {
+			count, err := queryCount(db, item.table, whereClause+item.extra, args...)
+			if err != nil {
+				statsError(c)
+				return
+			}
+			data[item.key] = count
+		}
+		c.JSON(http.StatusOK, gin.H{"code": 200, "data": data})
 	}
 }
 
-// GetSystemInfoStats 获取信息系统清单统计
+// GetSystemInfoStats 获取信息系统清单统计。
 func GetSystemInfoStats(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, _ := c.Get("user_id")
-		role, _ := c.Get("role")
-
-		whereClause := "is_deleted = 0"
-		args := []interface{}{}
-
-		if role != "admin" {
-			whereClause += " AND created_by = ?"
-			args = append(args, userID)
+		whereClause, args := statsScope(c)
+		runStatus, err := queryGroupedStats(db, "system_info_assets", "run_status", whereClause, "status", args...)
+		if err != nil {
+			statsError(c)
+			return
+		}
+		networkType, err := queryGroupedStats(db, "system_info_assets", "network_type", whereClause, "type", args...)
+		if err != nil {
+			statsError(c)
+			return
+		}
+		securityLevel, err := queryGroupedStats(db, "system_info_assets", "security_level", whereClause, "level", args...)
+		if err != nil {
+			statsError(c)
+			return
 		}
 
-		// 按运行状态统计
-		runStatusRows, _ := db.Query(
-			"SELECT run_status, COUNT(*) as count FROM system_info_assets WHERE "+whereClause+" GROUP BY run_status",
-			args...,
-		)
-		defer runStatusRows.Close()
-
-		runStatusStats := []gin.H{}
-		for runStatusRows.Next() {
-			var status string
-			var count int
-			runStatusRows.Scan(&status, &count)
-			runStatusStats = append(runStatusStats, gin.H{"status": status, "count": count})
-		}
-
-		// 按网络类型统计
-		networkTypeRows, _ := db.Query(
-			"SELECT network_type, COUNT(*) as count FROM system_info_assets WHERE "+whereClause+" GROUP BY network_type",
-			args...,
-		)
-		defer networkTypeRows.Close()
-
-		networkTypeStats := []gin.H{}
-		for networkTypeRows.Next() {
-			var ntype string
-			var count int
-			networkTypeRows.Scan(&ntype, &count)
-			networkTypeStats = append(networkTypeStats, gin.H{"type": ntype, "count": count})
-		}
-
-		// 按等保级别统计
-		securityLevelRows, _ := db.Query(
-			"SELECT security_level, COUNT(*) as count FROM system_info_assets WHERE "+whereClause+" GROUP BY security_level",
-			args...,
-		)
-		defer securityLevelRows.Close()
-
-		securityLevelStats := []gin.H{}
-		for securityLevelRows.Next() {
-			var level string
-			var count int
-			securityLevelRows.Scan(&level, &count)
-			securityLevelStats = append(securityLevelStats, gin.H{"level": level, "count": count})
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"code": 200,
-			"data": gin.H{
-				"run_status_stats":    runStatusStats,
-				"network_type_stats":  networkTypeStats,
-				"security_level_stats": securityLevelStats,
-			},
-		})
+		c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{
+			"run_status_stats":     runStatus,
+			"network_type_stats":   networkType,
+			"security_level_stats": securityLevel,
+		}})
 	}
 }
 
-// GetHardwareStats 获取信息化软硬件统计
+// GetHardwareStats 获取信息化软硬件统计。
 func GetHardwareStats(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, _ := c.Get("user_id")
-		role, _ := c.Get("role")
-
-		whereClause := "is_deleted = 0"
-		args := []interface{}{}
-
-		if role != "admin" {
-			whereClause += " AND created_by = ?"
-			args = append(args, userID)
+		whereClause, args := statsScope(c)
+		categories, err := queryGroupedStats(db, "hardware_software_assets", "category", whereClause, "category", args...)
+		if err != nil {
+			statsError(c)
+			return
+		}
+		useStatus, err := queryGroupedStats(db, "hardware_software_assets", "use_status", whereClause, "status", args...)
+		if err != nil {
+			statsError(c)
+			return
 		}
 
-		// 按类别统计
-		categoryRows, _ := db.Query(
-			"SELECT category, COUNT(*) as count FROM hardware_software_assets WHERE "+whereClause+" GROUP BY category",
-			args...,
-		)
-		defer categoryRows.Close()
-
-		categoryStats := []gin.H{}
-		for categoryRows.Next() {
-			var category string
-			var count int
-			categoryRows.Scan(&category, &count)
-			categoryStats = append(categoryStats, gin.H{"category": category, "count": count})
-		}
-
-		// 按使用状态统计
-		useStatusRows, _ := db.Query(
-			"SELECT use_status, COUNT(*) as count FROM hardware_software_assets WHERE "+whereClause+" GROUP BY use_status",
-			args...,
-		)
-		defer useStatusRows.Close()
-
-		useStatusStats := []gin.H{}
-		for useStatusRows.Next() {
-			var status string
-			var count int
-			useStatusRows.Scan(&status, &count)
-			useStatusStats = append(useStatusStats, gin.H{"status": status, "count": count})
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"code": 200,
-			"data": gin.H{
-				"category_stats":   categoryStats,
-				"use_status_stats": useStatusStats,
-			},
-		})
+		c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{
+			"category_stats":   categories,
+			"use_status_stats": useStatus,
+		}})
 	}
 }
 
-// GetVulnerabilityStats 获取风险漏洞统计
+// GetVulnerabilityStats 获取风险漏洞统计。
 func GetVulnerabilityStats(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, _ := c.Get("user_id")
-		role, _ := c.Get("role")
-
-		whereClause := "is_deleted = 0"
-		args := []interface{}{}
-
-		if role != "admin" {
-			whereClause += " AND created_by = ?"
-			args = append(args, userID)
+		whereClause, args := statsScope(c)
+		severity, err := queryGroupedStats(db, "vulnerability_assets", "severity", whereClause, "severity", args...)
+		if err != nil {
+			statsError(c)
+			return
+		}
+		method, err := queryGroupedStats(db, "vulnerability_assets", "discovery_method", whereClause, "method", args...)
+		if err != nil {
+			statsError(c)
+			return
 		}
 
-		// 按漏洞等级统计
-		severityRows, _ := db.Query(
-			"SELECT severity, COUNT(*) as count FROM vulnerability_assets WHERE "+whereClause+" GROUP BY severity",
-			args...,
-		)
-		defer severityRows.Close()
-
-		severityStats := []gin.H{}
-		for severityRows.Next() {
-			var severity string
-			var count int
-			severityRows.Scan(&severity, &count)
-			severityStats = append(severityStats, gin.H{"severity": severity, "count": count})
-		}
-
-		// 按发现方式统计
-		methodRows, _ := db.Query(
-			"SELECT discovery_method, COUNT(*) as count FROM vulnerability_assets WHERE "+whereClause+" GROUP BY discovery_method",
-			args...,
-		)
-		defer methodRows.Close()
-
-		methodStats := []gin.H{}
-		for methodRows.Next() {
-			var method string
-			var count int
-			methodRows.Scan(&method, &count)
-			methodStats = append(methodStats, gin.H{"method": method, "count": count})
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"code": 200,
-			"data": gin.H{
-				"severity_stats": severityStats,
-				"method_stats":   methodStats,
-			},
-		})
+		c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{
+			"severity_stats": severity,
+			"method_stats":   method,
+		}})
 	}
 }

@@ -1,31 +1,102 @@
 package handlers
 
 import (
-	"fmt"
 	"asset-manager/internal/utils"
+	"fmt"
+	"strings"
+	"time"
 )
 
 // ValidateAssetData 通用资产数据校验
 // 根据 assetType 调用对应的校验规则
 func ValidateAssetData(assetType string, data map[string]interface{}) error {
+	var err error
 	switch assetType {
 	case "system-info":
-		return validateSystemInfo(data)
+		err = validateSystemInfo(data)
 	case "hardware":
-		return validateHardware(data)
+		err = validateHardware(data)
 	case "data":
-		return validateData(data)
+		err = validateData(data)
 	case "supply-chain":
-		return validateSupplyChain(data)
+		err = validateSupplyChain(data)
 	case "vulnerability":
-		return validateVulnerability(data)
+		err = validateVulnerability(data)
 	case "software-stat":
-		return validateSoftwareStat(data)
+		err = validateSoftwareStat(data)
 	case "responsible-dept":
-		return validateResponsibleDept(data)
+		err = validateResponsibleDept(data)
 	default:
 		return nil
 	}
+	if err != nil {
+		return err
+	}
+	return validateConfiguredFieldTypes(assetType, data)
+}
+
+// validateConfiguredFieldTypes makes API writes and CSV imports share the same
+// enum, boolean, number, and date contract.
+func validateConfiguredFieldTypes(assetType string, data map[string]interface{}) error {
+	for _, column := range getAssetColumns(assetType) {
+		value, exists := data[column.dbColumn]
+		if !exists || value == nil || value == "" {
+			continue
+		}
+
+		switch column.fieldType {
+		case "enum":
+			if err := validateEnumValue(assetType, column.dbColumn, value); err != nil {
+				return err
+			}
+		case "boolean":
+			if _, ok := booleanValue(value); !ok {
+				return fmt.Errorf("字段 %s 必须为是或否", getFieldLabel(column.dbColumn))
+			}
+		case "number":
+			switch value.(type) {
+			case int, int32, int64, float32, float64:
+			default:
+				return fmt.Errorf("字段 %s 必须为数字", getFieldLabel(column.dbColumn))
+			}
+		case "date":
+			dateValue, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("字段 %s 必须为YYYY-MM-DD格式", getFieldLabel(column.dbColumn))
+			}
+			if _, err := time.Parse("2006-01-02", dateValue); err != nil {
+				return fmt.Errorf("字段 %s 必须为有效的YYYY-MM-DD日期", getFieldLabel(column.dbColumn))
+			}
+		}
+	}
+	return nil
+}
+
+func booleanValue(value interface{}) (bool, bool) {
+	switch v := value.(type) {
+	case bool:
+		return v, true
+	case int:
+		if v == 0 || v == 1 {
+			return v == 1, true
+		}
+	case int64:
+		if v == 0 || v == 1 {
+			return v == 1, true
+		}
+	case float64:
+		if v == 0 || v == 1 {
+			return v == 1, true
+		}
+	case string:
+		switch strings.ToLower(strings.TrimSpace(v)) {
+		case "是", "有", "yes", "true", "1":
+			return true, true
+		case "否", "无", "no", "false", "0":
+			return false, true
+		}
+	}
+	return false, false
 }
 
 // validateSystemInfo 校验信息系统清单
@@ -52,14 +123,17 @@ func validateSystemInfo(data map[string]interface{}) error {
 		}
 	}
 
-	// 条件校验：当 has_external_interface 为"是"时，interface_scope 必填
-	hasInterfaceVal := data["has_external_interface"]
-	if hasInterfaceVal != nil {
-		strVal := fmt.Sprintf("%v", hasInterfaceVal)
-		if strVal == "是" {
-			interfaceScope, exists := data["interface_scope"]
-			if !exists || interfaceScope == nil || interfaceScope == "" {
-				return fmt.Errorf("字段 对接范围和方式 不能为空")
+	// 条件校验：转换前的"是"和转换后的true都必须生效。
+	if hasInterface, ok := booleanValue(data["has_external_interface"]); ok && hasInterface {
+		interfaceScope, exists := data["interface_scope"]
+		if !exists || interfaceScope == nil || strings.TrimSpace(fmt.Sprintf("%v", interfaceScope)) == "" {
+			return fmt.Errorf("字段 对接范围和方式 不能为空")
+		}
+	}
+	for _, field := range []string{"has_media_platform", "has_external_interface", "has_personal_info", "has_cloud_deploy"} {
+		if value, exists := data[field]; exists && value != nil {
+			if _, ok := booleanValue(value); !ok {
+				return fmt.Errorf("字段 %s 的值不合法，必须为是或否", getFieldLabel(field))
 			}
 		}
 	}

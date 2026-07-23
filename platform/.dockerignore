@@ -1,0 +1,3 @@
+.codex-*
+*.exe
+coverage.out

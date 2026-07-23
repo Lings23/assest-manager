@@ -3,7 +3,7 @@
  * 处理登录、登出、token管理、用户状态
  */
 
-import { apiRequest } from './api.js';
+import { apiRequest, clearAccessToken, getAccessToken, setAccessToken } from './api.js';
 
 // 当前用户信息
 export let currentUser = null;
@@ -20,8 +20,8 @@ export async function login(username, password) {
         body: JSON.stringify({ username, password })
     });
 
-    // 存储token和用户信息
-    localStorage.setItem('token', data.data.token);
+	// Access Token仅保存于内存，避免持久化XSS读取浏览器存储。
+	setAccessToken(data.data.token);
     currentUser = data.data.user;
 
     return data;
@@ -37,8 +37,7 @@ export async function logout() {
         // 忽略登出API错误
     }
 
-    // 清除本地存储
-    localStorage.removeItem('token');
+	clearAccessToken();
     currentUser = null;
 
     // 刷新页面
@@ -60,7 +59,7 @@ export async function getCurrentUser() {
  * @returns {boolean}
  */
 export function isLoggedIn() {
-    return localStorage.getItem('token') !== null;
+	return Boolean(getAccessToken());
 }
 
 /**
@@ -73,7 +72,7 @@ export async function initAuth() {
             await getCurrentUser();
             return true;
         } catch (e) {
-            localStorage.removeItem('token');
+			clearAccessToken();
             return false;
         }
     }

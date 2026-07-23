@@ -10,6 +10,24 @@ temp_main.exe~
 *.o
 *.a
 *.so
+*.tmp
+*.log
+apps/web/node_modules/
+apps/web/dist/
+compose-smoke.log
+.codex-go-cache/
+.codex-go-tmp/
+.codex-build/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime databases
+*.db
+*.db-shm
+*.db-wal
 
 # IDE
 .idea/

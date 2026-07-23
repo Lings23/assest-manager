@@ -4,6 +4,7 @@
 
 import { apiRequest } from '../api.js';
 import { currentUser, logout } from '../auth.js';
+import { escapeHTML } from '../utils/html.js';
 
 /**
  * 渲染统计看板
@@ -20,7 +21,7 @@ export async function renderDashboard(container) {
             <div class="top-bar">
                 <h2>统计看板</h2>
                 <div>
-                    <span class="user-info">${currentUser?.username}</span>
+					<span class="user-info">${escapeHTML(currentUser?.username || '')}</span>
                     <button class="logout-btn" onclick="logout()" style="margin-left: 15px;">退出</button>
                 </div>
             </div>
@@ -52,6 +53,6 @@ export async function renderDashboard(container) {
             </div>
         `;
     } catch (error) {
-        container.innerHTML = `<div class="card"><p>加载失败: ${error.message}</p></div>`;
+		container.innerHTML = `<div class="card"><p>加载失败: ${escapeHTML(error.message)}</p></div>`;
     }
 }

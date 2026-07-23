@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master, develop]
+  push:
+    branches: [master, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  legacy-freeze:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enforce legacy feature freeze after baseline merge
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HOTFIX_APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'legacy-hotfix-approved') }}
+        run: |
+          if ! git cat-file -e "$BASE_SHA:docs/legacy-freeze.md" 2>/dev/null; then
+            echo "Baseline PR: legacy freeze enforcement starts after merge."
+            exit 0
+          fi
+          changed="$(git diff --name-only "$BASE_SHA"...HEAD | grep -E '^(main\.go|internal/|web/)' || true)"
+          if [ -n "$changed" ] && [ "$HOTFIX_APPROVED" != "true" ]; then
+            echo "Legacy system is frozen. Add the legacy-hotfix-approved label for an allowed blocking fix:"
+            echo "$changed"
+            exit 1
+          fi
+
+  go-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+          cache-dependency-path: |
+            go.sum
+            platform/go.mod
+      - name: Generated contract is current
+        run: go run ./tools/contractgen -check
+      - name: Formatting
+        run: test -z "$(find . \( -path ./.git -o -path ./apps/web/node_modules \) -prune -o -name '*.go' -print | xargs gofmt -l)"
+      - name: Legacy unit tests
+        run: go test -race -count=1 ./...
+      - name: Platform unit tests
+        working-directory: platform
+        run: go test -race -count=1 ./...
+      - name: Static analysis
+        run: |
+          go vet ./...
+          cd platform && go vet ./...
+
+  web-quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+  contract-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx --yes @redocly/cli@1.27.2 lint api/openapi/v1.yaml
+
+  compose-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and smoke the complete baseline
+        run: sh scripts/compose-smoke.sh
+      - name: Upload service logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-smoke-logs
+          path: compose-smoke.log
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Go vulnerability scan
+        run: |
+          go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+          cd platform && go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+      - name: NPM dependency audit
+        working-directory: apps/web
+        run: npm audit --audit-level=high
+      - name: Filesystem and secret scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret,misconfig
+          severity: HIGH,CRITICAL
+          exit-code: "1"

@@ -5,6 +5,14 @@
 
 import { getAssetConfig } from '../index.js';
 import { getEnumText, isEnumField } from '../enum-mappings.js';
+import { currentUser } from '../../auth.js';
+import { displayText, escapeHTML } from '../../utils/html.js';
+
+function booleanText(value) {
+    if (value === true || value === 1 || value === '1' || value === '是' || value === 'true') return '是';
+    if (value === false || value === 0 || value === '0' || value === '否' || value === 'false') return '否';
+    return '-';
+}
 
 /**
  * 获取表格表头HTML
@@ -40,25 +48,30 @@ export function renderTableRow(type, asset) {
         // 处理枚举字段：将数字编码转换为中文文本
         if (isEnumField(type, field)) {
             const text = getEnumText(type, field, value);
-            return `<td>${text || '-'}</td>`;
+			return `<td>${displayText(text)}</td>`;
         }
 
         // 处理布尔字段
         if (field === 'is_legalization_done' || field === 'is_critical_infra' ||
             field === 'has_external_interface' || field === 'has_personal_info' ||
             field === 'has_cloud_deploy' || field === 'has_media_platform') {
-            return `<td>${value ? '是' : '否'}</td>`;
+			return `<td>${booleanText(value)}</td>`;
         }
 
-        return `<td>${value || '-'}</td>`;
-    });
+		return `<td>${displayText(value)}</td>`;
+	});
+	const safeType = escapeHTML(type);
+	const numericID = Number.isSafeInteger(Number(asset.id)) ? Number(asset.id) : 0;
+	const deleteButton = currentUser?.role === 'admin'
+		? `<button class="btn-sm btn-danger" onclick="window.deleteAsset('${safeType}', ${numericID})">删除</button>`
+		: '';
 
     return `
         <tr>
             ${cells.join('')}
             <td>
-                <button class="btn-sm btn-warning" onclick="window.editAsset('${type}', ${asset.id})">编辑</button>
-                <button class="btn-sm btn-danger" onclick="window.deleteAsset('${type}', ${asset.id})">删除</button>
+				<button class="btn-sm btn-warning" onclick="window.editAsset('${safeType}', ${numericID})">编辑</button>
+				${deleteButton}
             </td>
         </tr>
     `;

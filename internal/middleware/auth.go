@@ -44,6 +44,10 @@ func AuthMiddleware() gin.HandlerFunc {
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
 		c.Set("role", claims.Role)
+		c.Set("token_id", claims.ID)
+		if claims.ExpiresAt != nil {
+			c.Set("token_expires_at", claims.ExpiresAt.Time)
+		}
 		c.Next()
 	}
 }

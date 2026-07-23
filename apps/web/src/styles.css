@@ -1,0 +1,30 @@
+:root {
+  color: #1f2937;
+  background: #f3f5f8;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  color: #fff;
+  background: #17324d;
+}
+
+.phase-tag {
+  margin-left: 16px;
+  color: #b9d6ee;
+  font-size: 13px;
+}
+
+.capabilities {
+  margin-top: 20px;
+}

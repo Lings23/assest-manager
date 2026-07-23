@@ -5,20 +5,43 @@ import (
 	"asset-manager/internal/middleware"
 	"database/sql"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 // SetupRoutes 设置路由
-func SetupRoutes(db *sql.DB, webFS http.FileSystem) *gin.Engine {
+func SetupRoutes(db *sql.DB, webFS http.FileSystem, allowedOrigins []string) *gin.Engine {
 	router := gin.Default()
+	// 旧系统未配置可信反向代理，禁止直接信任客户端提供的转发头，
+	// 避免攻击者伪造 IP 绕过登录限流。
+	if err := router.SetTrustedProxies(nil); err != nil {
+		panic("配置可信代理失败: " + err.Error())
+	}
 
-	// 配置CORS
+	allowed := make(map[string]bool, len(allowedOrigins))
+	for _, origin := range allowedOrigins {
+		allowed[origin] = true
+	}
+
+	// 配置CORS与基础安全响应头。旧前端仍含内联样式，因此style-src暂时保留unsafe-inline。
 	router.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		origin := strings.TrimSpace(c.GetHeader("Origin"))
+		if origin != "" && allowed[origin] {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Vary", "Origin")
+		}
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("Referrer-Policy", "no-referrer")
 		if c.Request.Method == "OPTIONS" {
+			if origin != "" && !allowed[origin] {
+				c.AbortWithStatus(http.StatusForbidden)
+				return
+			}
 			c.AbortWithStatus(204)
 			return
 		}
@@ -46,6 +69,7 @@ func SetupRoutes(db *sql.DB, webFS http.FileSystem) *gin.Engine {
 	{
 		protected.POST("/auth/logout", handlers.Logout())
 		protected.GET("/auth/me", handlers.GetCurrentUser())
+		protected.POST("/auth/change-password", handlers.ChangePassword(db))
 
 		// 软件信息统计累计计算（特殊路由）
 		protected.GET("/assets/software-stat/calculate-cumulative", handlers.CalculateCumulative(db))

@@ -1,17 +1,22 @@
 package database
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
+	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
-	_ "modernc.org/sqlite"
 	"golang.org/x/crypto/bcrypt"
+	_ "modernc.org/sqlite"
 )
 
 func InitDB(dbPath string) (*sql.DB, error) {
 	// 确保数据目录存在
-	dir := dbPath[:len(dbPath)-len("/assets.db")]
+	dir := filepath.Dir(dbPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, err
 	}
@@ -23,12 +28,22 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	}
 
 	// 配置连接池
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 
 	// 启用WAL模式和外键
-	db.Exec("PRAGMA journal_mode=WAL")
-	db.Exec("PRAGMA foreign_keys=ON")
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("enable WAL: %w", err)
+	}
+	if _, err := db.Exec("PRAGMA foreign_keys=ON"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("enable foreign keys: %w", err)
+	}
+	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("set busy timeout: %w", err)
+	}
 
 	// 创建表结构
 	if err := createTables(db); err != nil {
@@ -36,7 +51,10 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	}
 
 	// 创建默认管理员账号
-	createDefaultAdmin(db)
+	if err := createDefaultAdmin(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 
 	log.Println("Database initialized successfully")
 	return db, nil
@@ -306,29 +324,65 @@ func createTables(db *sql.DB) error {
 	return nil
 }
 
-func createDefaultAdmin(db *sql.DB) {
-	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", "admin").Scan(&count)
-	if err != nil {
-		log.Printf("Failed to check admin user: %v", err)
-		return
+func bootstrapAdminPassword() (string, bool, error) {
+	if configured := strings.TrimSpace(os.Getenv("ADMIN_PASSWORD")); len(configured) >= 12 {
+		return configured, false, nil
+	}
+	passwordBytes := make([]byte, 18)
+	if _, err := rand.Read(passwordBytes); err != nil {
+		return "", false, fmt.Errorf("generate bootstrap admin password: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(passwordBytes), true, nil
+}
+
+func createDefaultAdmin(db *sql.DB) error {
+	var storedHash string
+	queryErr := db.QueryRow("SELECT password FROM users WHERE username = ?", "admin").Scan(&storedHash)
+	if queryErr != nil && queryErr != sql.ErrNoRows {
+		return fmt.Errorf("check admin user: %w", queryErr)
 	}
 
-	if count == 0 {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
-		if err != nil {
-			log.Printf("Failed to hash admin password: %v", err)
-			return
-		}
+	password, generated, err := bootstrapAdminPassword()
+	if err != nil {
+		return err
+	}
+	if os.Getenv("ADMIN_PASSWORD") != "" && len(strings.TrimSpace(os.Getenv("ADMIN_PASSWORD"))) < 12 {
+		log.Println("WARNING: ADMIN_PASSWORD短于12字符，已忽略并生成随机临时密码")
+	}
 
-		_, err = db.Exec(
+	if queryErr == sql.ErrNoRows {
+		hashedPassword, hashErr := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if hashErr != nil {
+			return fmt.Errorf("hash admin password: %w", hashErr)
+		}
+		if _, insertErr := db.Exec(
 			"INSERT INTO users (username, password, real_name, role, is_active) VALUES (?, ?, ?, ?, ?)",
 			"admin", string(hashedPassword), "系统管理员", "admin", true,
-		)
-		if err != nil {
-			log.Printf("Failed to create default admin: %v", err)
+		); insertErr != nil {
+			return fmt.Errorf("create admin user: %w", insertErr)
+		}
+		if generated {
+			log.Printf("首次启动管理员已创建，用户名admin，临时密码：%s（请登录后立即修改）", password)
 		} else {
-			log.Println("Default admin user created (username: admin, password: admin123)")
+			log.Println("首次启动管理员已使用ADMIN_PASSWORD创建，用户名admin")
+		}
+		return nil
+	}
+
+	// 自动淘汰历史固定默认口令。仅当数据库仍使用admin123时执行一次。
+	if bcrypt.CompareHashAndPassword([]byte(storedHash), []byte("admin123")) == nil {
+		hashedPassword, hashErr := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if hashErr != nil {
+			return fmt.Errorf("hash replacement admin password: %w", hashErr)
+		}
+		if _, updateErr := db.Exec("UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?", string(hashedPassword), "admin"); updateErr != nil {
+			return fmt.Errorf("replace insecure admin password: %w", updateErr)
+		}
+		if generated {
+			log.Printf("检测到历史默认管理员口令，已轮换为临时密码：%s（请登录后立即修改）", password)
+		} else {
+			log.Println("检测到历史默认管理员口令，已轮换为ADMIN_PASSWORD")
 		}
 	}
+	return nil
 }

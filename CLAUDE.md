@@ -27,8 +27,8 @@ GOOS=linux GOARCH=amd64 go build -o asset-manager
 PORT=8081 go run main.go
 ```
 
-**Default access**: http://localhost:8080
-**Default credentials**: admin / admin123
+**Default access**: http://localhost:8082
+**Administrator bootstrap**: username `admin`; password comes from `ADMIN_PASSWORD` or is generated once and printed to the startup log
 
 ## Technology Stack
 
@@ -39,7 +39,7 @@ PORT=8081 go run main.go
 | Database | SQLite (modernc.org/sqlite) | Pure Go, no CGO dependency |
 | Auth | JWT + bcrypt | 24-hour token validity |
 | Frontend | Embedded HTML + Chart.js | go:embed for single-file deployment |
-| Export | tealeg/xlsx | Excel export |
+| Export | encoding/csv | UTF-8 CSV export with Chinese headers |
 
 ## Project Structure
 
@@ -75,12 +75,12 @@ The system manages 7 asset types through a unified generic handler:
 | API Type Parameter | Model | Table |
 |--------------------|-------|-------|
 | `system-info` | SystemInfoAsset | system_info_assets |
-| `hardware-software` | HardwareSoftwareAsset | hardware_software_assets |
+| `hardware` | HardwareSoftwareAsset | hardware_software_assets |
 | `data` | DataAsset | data_assets |
 | `supply-chain` | SupplyChainAsset | supply_chain_assets |
 | `vulnerability` | VulnerabilityAsset | vulnerability_assets |
-| `software-statistics` | SoftwareStatistics | software_statistics |
-| `responsible-department` | ResponsibleDepartment | responsible_departments |
+| `software-stat` | SoftwareStatistics | software_statistics |
+| `responsible-dept` | ResponsibleDepartment | responsible_departments |
 
 All CRUD operations use the same route pattern: `/api/assets/:type`
 
@@ -148,8 +148,10 @@ Reporters can only edit records they created (checked via `created_by` field).
 ## Configuration
 
 Environment variables (see `config/config.go`):
-- `PORT` - Server port (default: 8080)
-- JWT secret is hardcoded in config.go (change for production)
+- `PORT` - Server port (default: 8082)
+- `JWT_SECRET` - HS256 secret, at least 32 random characters in formal environments
+- `ADMIN_PASSWORD` - bootstrap administrator password, at least 12 characters
+- `JWT_TTL_HOURS` - access-token lifetime, default 2 hours
 
 ## Common Pitfalls
 
@@ -168,7 +170,7 @@ Import expects CSV with Chinese headers matching field descriptions. Use the tem
 GET /api/assets/:type/template
 ```
 
-Export produces Excel files with Chinese headers.
+Export produces UTF-8 CSV files with Chinese headers.
 
 ## Soft Delete
 

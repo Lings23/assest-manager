@@ -86,6 +86,7 @@ func parseStringToInt(s string) (int, error) {
 	}
 	return result, nil
 }
+
 var booleanFieldMappings = map[string][]string{
 	"system-info": {
 		"has_external_interface",
@@ -101,10 +102,10 @@ var booleanFieldMappings = map[string][]string{
 		"has_cross_border_assessment",
 		"cross_border",
 	},
-	"hardware":        {},
-	"supply-chain":    {},
-	"vulnerability":   {},
-	"software-stat":   {"is_legalization_done"},
+	"hardware":         {},
+	"supply-chain":     {},
+	"vulnerability":    {},
+	"software-stat":    {"is_legalization_done"},
 	"responsible-dept": {},
 }
 
@@ -129,8 +130,9 @@ func convertBooleanFields(assetType string, data map[string]interface{}) {
 	}
 }
 
-// convertBooleanToText 将数据库中的布尔值(0/1)转换为"是"/"否"文本显示
-func convertBooleanToText(assetType string, data map[string]interface{}) {
+// normalizeBooleanFields 将SQLite返回的0/1统一转换为JSON布尔值。
+// 展示层负责将布尔值转换为中文，避免字符串"否"在JavaScript中被当成真值。
+func normalizeBooleanFields(assetType string, data map[string]interface{}) {
 	fields, ok := booleanFieldMappings[assetType]
 	if !ok {
 		return
@@ -152,12 +154,7 @@ func convertBooleanToText(assetType string, data map[string]interface{}) {
 			default:
 				continue
 			}
-			// 将布尔值转为 "是"/"否"
-			if boolVal {
-				data[field] = "是"
-			} else {
-				data[field] = "否"
-			}
+			data[field] = boolVal
 		}
 	}
 }
@@ -188,6 +185,24 @@ func getAssetConfig(assetType string) *AssetConfig {
 		"responsible-dept": {TableName: "responsible_departments", TypeName: "责任部门"},
 	}
 	return configs[assetType]
+}
+
+// validateWritableFields ensures request-controlled JSON keys can never become
+// untrusted SQL identifiers. Only business columns declared by the server are
+// accepted; IDs, ownership, timestamps, and soft-delete flags are always owned
+// by the server.
+func validateWritableFields(assetType string, data map[string]interface{}) error {
+	allowed := make(map[string]struct{})
+	for _, column := range getAssetColumns(assetType) {
+		allowed[column.dbColumn] = struct{}{}
+	}
+
+	for field := range data {
+		if _, ok := allowed[field]; !ok {
+			return fmt.Errorf("不允许提交字段 %s", field)
+		}
+	}
+	return nil
 }
 
 // ListAssets 通用资产列表查询
@@ -254,7 +269,10 @@ func ListAssets(db *sql.DB) gin.HandlerFunc {
 
 		var total int
 		countSQL := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s", config.TableName, whereClause)
-		db.QueryRow(countSQL, args...).Scan(&total)
+		if err := db.QueryRow(countSQL, args...).Scan(&total); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "查询失败"})
+			return
+		}
 
 		querySQL := fmt.Sprintf("SELECT * FROM %s WHERE %s ORDER BY created_at DESC LIMIT ? OFFSET ?", config.TableName, whereClause)
 		args = append(args, pageSize, offset)
@@ -266,7 +284,11 @@ func ListAssets(db *sql.DB) gin.HandlerFunc {
 		}
 		defer rows.Close()
 
-		columns, _ := rows.Columns()
+		columns, err := rows.Columns()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "查询失败"})
+			return
+		}
 		var assets []map[string]interface{}
 
 		for rows.Next() {
@@ -277,7 +299,8 @@ func ListAssets(db *sql.DB) gin.HandlerFunc {
 			}
 
 			if err := rows.Scan(valuePtrs...); err != nil {
-				continue
+				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "查询失败"})
+				return
 			}
 
 			asset := make(map[string]interface{})
@@ -289,9 +312,12 @@ func ListAssets(db *sql.DB) gin.HandlerFunc {
 					asset[col] = val
 				}
 			}
-			// 将布尔字段的 0/1 转换为 "是"/"否"
-			convertBooleanToText(assetType, asset)
+			normalizeBooleanFields(assetType, asset)
 			assets = append(assets, asset)
+		}
+		if err := rows.Err(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "查询失败"})
+			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -335,8 +361,12 @@ func GetAsset(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "查询失败"})
 			return
 		}
-		columns, _ := colRows.Columns()
+		columns, err := colRows.Columns()
 		colRows.Close()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "查询失败"})
+			return
+		}
 
 		// 查询数据
 		row := db.QueryRow(query, args...)
@@ -365,9 +395,7 @@ func GetAsset(db *sql.DB) gin.HandlerFunc {
 			}
 		}
 
-
-		// 将布尔字段的 0/1 转换为 "是"/"否"
-		convertBooleanToText(assetType, asset)
+		normalizeBooleanFields(assetType, asset)
 		c.JSON(http.StatusOK, gin.H{"code": 200, "data": asset})
 	}
 }
@@ -389,11 +417,15 @@ func CreateAsset(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误"})
 			return
 		}
+		if err := validateWritableFields(assetType, data); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+			return
+		}
 
 		// 转换布尔字段（将"是"/"否"转为 true/false）
 		convertBooleanFields(assetType, data)
-			// 转换枚举字段（将字符串编码转为 int）
-			convertEnumFields(assetType, data)
+		// 转换枚举字段（将字符串编码转为 int）
+		convertEnumFields(assetType, data)
 		// 数据校验
 		if err := ValidateAssetData(assetType, data); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
@@ -426,9 +458,7 @@ func CreateAsset(db *sql.DB) gin.HandlerFunc {
 
 		result, err := db.Exec(query, values...)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code": 500, "message": "创建失败", "error": err.Error(),
-			})
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建失败"})
 			return
 		}
 
@@ -451,26 +481,20 @@ func UpdateAsset(db *sql.DB) gin.HandlerFunc {
 		userID, _ := c.Get("user_id")
 		role, _ := c.Get("role")
 
-		// 检查权限
-		if role != "admin" {
-			var createdBy uint
-			db.QueryRow(fmt.Sprintf("SELECT created_by FROM %s WHERE id = ? AND is_deleted = 0", config.TableName), id).Scan(&createdBy)
-			if createdBy != userID.(uint) {
-				c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "无权限修改此记录"})
-				return
-			}
-		}
-
 		var data map[string]interface{}
 		if err := c.ShouldBindJSON(&data); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误"})
 			return
 		}
+		if err := validateWritableFields(assetType, data); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+			return
+		}
 
 		// 转换布尔字段（将"是"/"否"转为 true/false）
 		convertBooleanFields(assetType, data)
-			// 转换枚举字段（将字符串编码转为 int）
-			convertEnumFields(assetType, data)
+		// 转换枚举字段（将字符串编码转为 int）
+		convertEnumFields(assetType, data)
 
 		// 数据校验（更新时校验提交的字段）
 		if err := ValidateAssetData(assetType, data); err != nil {
@@ -493,13 +517,25 @@ func UpdateAsset(db *sql.DB) gin.HandlerFunc {
 		now := time.Now().Format("2006-01-02 15:04:05")
 		setParts = append(setParts, "updated_at = ?")
 		values = append(values, now)
+		query := fmt.Sprintf("UPDATE %s SET %s WHERE id = ? AND is_deleted = 0", config.TableName, joinStrings(setParts, ", "))
 		values = append(values, id)
+		if role != "admin" {
+			query += " AND created_by = ?"
+			values = append(values, userID)
+		}
 
-		query := fmt.Sprintf("UPDATE %s SET %s WHERE id = ?", config.TableName, joinStrings(setParts, ", "))
-
-		_, err := db.Exec(query, values...)
+		result, err := db.Exec(query, values...)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新失败"})
+			return
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新失败"})
+			return
+		}
+		if rowsAffected == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "记录不存在或无权限修改"})
 			return
 		}
 
@@ -521,9 +557,18 @@ func DeleteAsset(db *sql.DB) gin.HandlerFunc {
 		now := time.Now().Format("2006-01-02 15:04:05")
 		query := fmt.Sprintf("UPDATE %s SET is_deleted = 1, updated_at = ? WHERE id = ?", config.TableName)
 
-		_, err := db.Exec(query, now, id)
+		result, err := db.Exec(query, now, id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除失败"})
+			return
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除失败"})
+			return
+		}
+		if rowsAffected == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "记录不存在"})
 			return
 		}
 
@@ -630,10 +675,17 @@ func CalculateCumulative(db *sql.DB) gin.HandlerFunc {
 			WHERE department_name = ?
 			  AND registration_date < ?
 			  AND is_deleted = 0`
+		queryArgs := []interface{}{departmentName, registrationDate}
+		role, _ := c.Get("role")
+		if role != "admin" {
+			userID, _ := c.Get("user_id")
+			query += " AND created_by = ?"
+			queryArgs = append(queryArgs, userID)
+		}
 
 		var prevOsDomLic, prevOsForLic, prevOfficeDomLic, prevOfficeForLic, prevAvDomLic, prevAvForLic int
 
-		err := db.QueryRow(query, departmentName, registrationDate).Scan(
+		err := db.QueryRow(query, queryArgs...).Scan(
 			&prevOsDomLic, &prevOsForLic,
 			&prevOfficeDomLic, &prevOfficeForLic,
 			&prevAvDomLic, &prevAvForLic,

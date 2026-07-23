@@ -1,182 +1,128 @@
-# 资产信息管理系统
+# 资产治理平台 / 旧资产信息管理系统
 
-## 项目说明
+本仓库同时包含迁移期旧系统和新资产治理平台：
 
-这是一个基于Go语言开发的资产信息管理系统,用于管理5类资产清单:
+- 根目录 `main.go`、`internal/`、`web/`：Go、SQLite 和嵌入式前端组成的旧系统，已进入功能冻结。
+- `platform/`、`apps/web/`、`api/`、`deploy/`：新平台 Monorepo 工程基线，新业务统一在此建设。
+
+阶段一完成了旧系统安全止血以及新平台工程骨架。当前阶段和验收证据见[改造状态](改造状态.md)，总体路线见[工程化改造计划](工程化改造计划.md)。
+
+## 功能范围
+
+旧系统当前承担实际业务，管理以下七类资产：
+
 1. 信息系统清单
 2. 信息化软硬件清单
 3. 数据资产清单
 4. 供应链清单
 5. 风险漏洞清单
+6. 软件信息统计
+7. 责任部门
+
+已实现能力包括：
+
+- 管理员和填报员登录，密码使用 bcrypt 保存。
+- 七类资产的新增、查询、更新、分页、搜索和软删除。
+- 填报员仅访问本人创建的数据，删除仅允许管理员执行。
+- CSV 模板、导入和导出，支持中文表头、枚举及布尔转换。
+- 概览、系统、软硬件和漏洞统计，以及软件采购累计计算。
+
+旧系统没有完整的用户管理、审计写入、自动备份恢复和 Excel 导出；这些能力不能仅根据历史文档或空目录视为已经实现。
+
+新平台阶段一只提供可运行的工程骨架，IAM、资产 Schema、审批、任务和报表业务将在后续阶段实现。
 
 ## 环境要求
 
-- Go 1.22或更高版本
+- Go 1.23 或更高版本
+- Node.js 22
+- Docker Engine 和 Docker Compose v2
 
-## 安装Go
+## 新平台本地启动
 
-### Windows系统
+复制示例配置并替换全部占位密码：
 
-1. 访问 https://golang.org/dl/ 下载Windows安装包
-2. 运行安装程序,按提示完成安装
-3. 打开新的命令提示符窗口,验证安装:
-   ```bash
-   go version
-   ```
+```powershell
+Copy-Item .env.example .env
+docker compose up --build --detach --wait
+```
 
-或者使用winget安装:
+访问地址：
+
+- 新前端：`http://localhost:8088`
+- API Gateway：`http://localhost:8080`
+- 网关就绪检查：`http://localhost:8080/health/ready`
+
+完整冒烟：
+
+```powershell
+.\scripts\compose-smoke.ps1
+```
+
+脚本会生成临时测试密码、构建并启动完整环境、执行 HTTP 和容器健康检查，然后停止容器。
+
+## 旧系统本地启动
+
+正式环境必须显式配置安全的 `JWT_SECRET` 和 `ADMIN_PASSWORD`。本地开发未配置时会生成进程级临时值，重启后 Token 会失效；首次启动生成的管理员临时密码只输出到启动日志。
+
+```powershell
+$env:JWT_SECRET = 'replace-with-at-least-32-random-characters'
+$env:ADMIN_PASSWORD = 'replace-with-at-least-12-random-characters'
+go run .
+```
+
+旧系统当前默认监听 `http://localhost:8082`，可通过 `PORT` 修改。不存在固定的 `admin123` 默认密码。
+
+## 常用命令
+
+```powershell
+# OpenAPI 生成一致性
+go run ./tools/contractgen -check
+
+# 旧系统测试
+go test -count=1 ./...
+
+# 新平台测试
+Push-Location platform
+go test -count=1 ./...
+Pop-Location
+
+# Vue 类型检查和生产构建
+Push-Location apps/web
+npm ci
+npm run typecheck
+npm run build
+Pop-Location
+```
+
+也可以使用 Makefile：
+
 ```bash
-winget install GoLang.Go
+make check
+make test
+make build
+make compose-smoke
 ```
 
-### Linux系统
+## 目录
 
-```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt install golang-go
-
-# CentOS/RHEL
-sudo yum install golang
-
-# 或使用snap
-sudo snap install go --classic
+```text
+api/openapi/                 公共 REST 契约
+apps/web/                    Vue 3 + TypeScript 前端
+platform/cmd/gateway/        API Gateway
+platform/cmd/iam-service/    IAM 服务骨架
+platform/cmd/asset-service/  资产服务骨架
+platform/cmd/governance-service/ 治理服务骨架
+platform/cmd/task-report-service/ 任务与报表服务骨架
+platform/internal/servicekit/ 公共工程能力
+deploy/                      Compose 初始化和部署资产
+docs/                        架构、冻结、分支及安全规范
+internal/、web/、main.go     已冻结的旧系统
 ```
 
-## 项目设置
+## 开发规则
 
-### 1. 安装依赖
-
-在项目根目录执行:
-```bash
-go mod download
-```
-
-### 2. 编译运行
-
-```bash
-# 直接运行
-go run main.go
-
-# 或编译后运行
-go build -o asset-manager.exe
-./asset-manager.exe
-```
-
-### 3. 访问系统
-
-浏览器打开: http://localhost:8080
-
-默认管理员账号:
-- 用户名: admin
-- 密码: admin123
-
-## 项目结构
-
-```
-asset-manager/
-├── main.go                  # 主程序入口
-├── go.mod                   # Go模块定义
-├── go.sum                   # 依赖校验文件
-├── internal/
-│   ├── config/
-│   │   └── config.go       # 配置管理
-│   ├── database/
-│   │   └── database.go     # 数据库初始化
-│   ├── models/
-│   │   └── models.go       # 数据模型
-│   ├── handlers/
-│   │   ├── auth.go         # 认证处理
-│   │   ├── assets.go       # 资产管理处理
-│   │   ├── users.go        # 用户管理处理
-│   │   └── stats.go        # 统计处理
-│   ├── middleware/
-│   │   └── auth.go         # 认证中间件
-│   ├── routes/
-│   │   └── routes.go       # 路由配置
-│   └── utils/
-│       ├── jwt.go          # JWT工具
-│       └── export.go       # 导出工具
-├── web/
-│   └── index.html          # 前端页面(嵌入)
-└── data/
-    ├── assets.db           # SQLite数据库(自动生成)
-    ├── backup/             # 备份目录
-    └── export/             # 导出文件目录
-```
-
-## 功能特性
-
-### 用户管理
-- 管理员和填报员两种角色
-- JWT Token认证
-- 密码bcrypt加密
-
-### 资产管理
-- 5类资产信息的增删改查
-- 分页、搜索、筛选
-- 软删除机制
-
-### 数据统计
-- 多维度统计图表
-- 实时数据看板
-
-### 数据导出
-- 支持Excel(.xlsx)导出
-- 支持CSV格式导出
-
-### 系统管理
-- 操作日志记录
-- 数据备份恢复
-- 用户权限管理
-
-## 技术栈
-
-- **后端**: Go 1.22+, Gin框架
-- **数据库**: SQLite (modernc.org/sqlite)
-- **认证**: JWT (golang-jwt/jwt)
-- **加密**: bcrypt (golang.org/x/crypto)
-- **导出**: Excel (tealeg/xlsx)
-- **前端**: HTML5 + CSS3 + JavaScript + Chart.js
-
-## 开发说明
-
-### 添加新接口
-
-1. 在 `internal/handlers/` 创建处理函数
-2. 在 `internal/routes/routes.go` 注册路由
-3. 在前端页面添加对应的JavaScript调用
-
-### 数据库迁移
-
-修改 `internal/database/database.go` 中的表结构SQL语句
-
-### 前端修改
-
-编辑嵌入的HTML文件,重新编译即可
-
-## 注意事项
-
-1. 首次运行会自动创建数据库和管理员账号
-2. 数据库文件存储在 `data/assets.db`
-3. 建议定期备份数据库文件
-4. 生产环境请修改JWT密钥
-
-## 常见问题
-
-### Q: 编译时提示找不到模块
-A: 执行 `go mod tidy` 自动下载依赖
-
-### Q: 端口被占用
-A: 设置环境变量 `PORT=8081` 或其他端口
-
-### Q: 如何重置管理员密码
-A: 删除 `data/assets.db` 文件,重启系统会自动创建默认账号
-
-## 许可证
-
-本项目仅供内部使用
-
-## 联系方式
-
-如有问题请联系系统管理员
+- 新业务不得继续加入旧系统目录，冻结规则见[旧系统功能冻结](docs/legacy-freeze.md)。
+- 分支和发布流程见[分支与发布策略](docs/development/branching-strategy.md)。
+- 密钥处理规则见[密钥与敏感配置管理](docs/security/secrets.md)。
+- OpenAPI 修改后运行 `go generate .`，CI 会检查生成产物是否漂移。
+- 前端和后端不得提交 `.env`、数据库、私钥、Token、运行日志或构建产物。

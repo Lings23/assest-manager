@@ -4,6 +4,7 @@
 
 import { apiRequestWithFile } from '../api.js';
 import { downloadTemplate } from './export.js';
+import { escapeHTML } from '../utils/html.js';
 
 /**
  * 显示导入对话框
@@ -59,13 +60,13 @@ async function doImport(type) {
 
         if (result.code === 200) {
             let html = `<div style="color: green;">
-                <p><strong>${result.message}</strong></p>`;
+				<p><strong>${escapeHTML(result.message)}</strong></p>`;
 
             if (result.errors && result.errors.length > 0) {
                 html += `<p style="margin-top: 10px; color: #ff6b6b;">错误详情：</p>
                     <ul style="max-height: 200px; overflow-y: auto; padding-left: 20px;">`;
                 result.errors.forEach(err => {
-                    html += `<li style="margin-bottom: 5px;">${err}</li>`;
+					html += `<li style="margin-bottom: 5px;">${escapeHTML(err)}</li>`;
                 });
                 html += '</ul>';
             }
@@ -78,9 +79,9 @@ async function doImport(type) {
                 window.loadAssetList(type, 1);
             }, 1500);
         } else {
-            resultDiv.innerHTML = `<div style="color: red;"><strong>导入失败</strong><br>${result.message}</div>`;
+			resultDiv.innerHTML = `<div style="color: red;"><strong>导入失败</strong><br>${escapeHTML(result.message)}</div>`;
         }
     } catch (error) {
-        resultDiv.innerHTML = `<div style="color: red;">导入失败: ${error.message}</div>`;
+		resultDiv.innerHTML = `<div style="color: red;">导入失败: ${escapeHTML(error.message)}</div>`;
     }
 }

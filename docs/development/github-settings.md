@@ -19,6 +19,8 @@
 
 完整竞态、Compose 和安全检查在 `master` 合并后、每周定时及手动触发时执行。阶段标签只在该检查通过后创建。
 
+Dependabot 常规版本更新按月跨生态合并为一个 PR，避免小团队同时处理大量独立升级。安全更新不等待月度批次，仍由 GitHub 安全功能单独处理。
+
 ## Secrets 与 Environments
 
 在 `Settings -> Secrets and variables -> Actions` 配置实际 Secret。建议创建 `development`、`staging`、`production` Environments，并对生产环境启用人工审批。变量清单和安全要求见 `docs/security/secrets.md`。

@@ -5,19 +5,19 @@
 ## `master` 保护规则
 
 - 要求通过 Pull Request 合并。
-- 要求至少一名独立审批人。
-- 要求解决全部 review conversation。
-- 要求分支在合并前保持最新。
-- 要求 CI 中 Go、Web、契约、Compose 和安全任务通过。
+- 小团队只有一名维护者时不强制独立审批；增加协作者后再启用一名审批人。
+- 要求快速 `quality` 检查通过。
 - 禁止 force push 和分支删除。
 
 ## `develop` 保护规则
 
 - 要求通过 Pull Request 合并。
-- 要求核心测试、契约和安全检查通过。
+- 要求快速 `quality` 检查通过。
 - 禁止 force push 和分支删除。
 
 `master` 保持默认分支；阶段二功能 Pull Request 显式选择 `develop` 为目标分支。
+
+完整竞态、Compose 和安全检查在 `master` 合并后、每周定时及手动触发时执行。阶段标签只在该检查通过后创建。
 
 ## Secrets 与 Environments
 

@@ -2,6 +2,8 @@ module asset-manager
 
 go 1.23.0
 
+toolchain go1.25.12
+
 require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt/v5 v5.2.2

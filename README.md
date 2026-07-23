@@ -33,7 +33,7 @@
 
 ## 环境要求
 
-- Go 1.23 或更高版本
+- Go 1.25.12 或更新的受支持版本
 - Node.js 22
 - Docker Engine 和 Docker Compose v2
 

@@ -34,7 +34,7 @@ PORT=8081 go run main.go
 
 | Component | Technology | Notes |
 |-----------|------------|-------|
-| Language | Go 1.22+ | Single-binary deployment |
+| Language | Go 1.25.12+ | Use a currently supported Go release |
 | Web Framework | Gin | HTTP routing and middleware |
 | Database | SQLite (modernc.org/sqlite) | Pure Go, no CGO dependency |
 | Auth | JWT + bcrypt | 24-hour token validity |

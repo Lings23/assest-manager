@@ -70,6 +70,8 @@ func newGatewayHandler(cfg servicekit.Config, upstreams upstreamConfig, logger *
 			servicekit.WriteJSON(w, http.StatusOK, map[string]string{"service": "gateway", "status": "baseline-ready"})
 		})
 		registerProxy(mux, iam, "/api/v1/auth")
+		registerProxy(mux, iam, "/api/v1/users")
+		registerProxy(mux, iam, "/api/v1/departments")
 		registerProxy(mux, asset, "/api/v1/asset-types")
 		registerProxy(mux, asset, "/api/v1/assets")
 		registerProxy(mux, governance, "/api/v1/workflows")

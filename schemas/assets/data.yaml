@@ -1,0 +1,36 @@
+type: data
+title: 数据资产清单
+version: 1
+compatibility: backward
+migration: 统一重复的跨境字段语义前保留原字段，后续版本通过兼容迁移收敛。
+storage:
+  table: data_assets
+fields:
+  - { name: source_system, label: 来源系统, type: string, required: true, maxLength: 200, searchable: true, filterable: true, import: true, export: true, list: true, group: 基本信息, widget: text }
+  - { name: security_level, label: 安全等级, type: integer, filterable: true, import: true, export: true, list: true, group: 分类分级, widget: select, enum: [{ value: 0, label: 一级 }, { value: 1, label: 二级 }, { value: 2, label: 三级 }] }
+  - { name: is_critical_infra, label: 是否关键信息基础设施数据, type: boolean, default: false, filterable: true, import: true, export: true, group: 分类分级, widget: switch }
+  - { name: data_name, label: 数据名称, type: string, required: true, maxLength: 200, searchable: true, sortable: true, import: true, export: true, list: true, group: 基本信息, widget: text }
+  - { name: data_items, label: 数据项, type: string, required: true, import: true, export: true, group: 基本信息, widget: textarea }
+  - { name: data_classification, label: 数据分类, type: integer, filterable: true, import: true, export: true, list: true, group: 分类分级, widget: select, enum: [{ value: 0, label: 未分类 }, { value: 1, label: 重要数据 }, { value: 2, label: 一般三级 }, { value: 3, label: 一般二级 }, { value: 4, label: 一般一级 }] }
+  - { name: data_carrier, label: 数据载体, type: string, required: true, maxLength: 100, filterable: true, import: true, export: true, group: 存储来源, widget: text }
+  - { name: data_source, label: 数据来源, type: integer, filterable: true, import: true, export: true, group: 存储来源, widget: select, enum: [{ value: 0, label: 共享交换 }, { value: 1, label: 人工填报 }] }
+  - { name: data_size, label: 数据大小, type: number, minimum: 0, import: true, export: true, group: 规模, widget: number }
+  - { name: data_count, label: 数据条数, type: integer, minimum: 0, import: true, export: true, group: 规模, widget: number }
+  - { name: processor_name, label: 数据处理者名称, type: string, required: true, maxLength: 200, searchable: true, import: true, export: true, group: 责任信息, widget: text }
+  - { name: main_leader, label: 主要负责人, type: string, required: true, maxLength: 50, import: true, export: true, sensitive: true, group: 责任信息, widget: text }
+  - { name: security_leader, label: 安全负责人, type: string, required: true, maxLength: 50, import: true, export: true, sensitive: true, group: 责任信息, widget: text }
+  - { name: contact_phone, label: 联系电话, type: string, required: true, maxLength: 50, import: true, export: true, sensitive: true, group: 责任信息, widget: text }
+  - { name: processing_purpose, label: 处理目的, type: string, required: true, import: true, export: true, group: 使用共享, widget: textarea }
+  - { name: usage_scope, label: 使用范围, type: string, required: true, import: true, export: true, group: 使用共享, widget: textarea }
+  - { name: sharing_scope, label: 共享范围, type: string, import: true, export: true, group: 使用共享, widget: textarea }
+  - { name: cross_border, label: 是否涉及跨境处理, type: boolean, default: false, filterable: true, import: true, export: true, group: 跨境与个人信息, widget: switch }
+  - { name: has_personal_info_elements, label: 是否含个人信息要素, type: boolean, default: false, filterable: true, import: true, export: true, group: 跨境与个人信息, widget: switch }
+  - { name: personal_info_scale, label: 个人信息规模, type: integer, minimum: 0, requiredWhen: has_personal_info_elements == true, import: true, export: true, group: 跨境与个人信息, widget: number }
+  - { name: has_sensitive_personal, label: 是否含敏感个人信息, type: boolean, default: false, filterable: true, import: true, export: true, group: 跨境与个人信息, widget: switch }
+  - { name: has_name, label: 是否包含姓名, type: boolean, default: false, import: true, export: true, group: 跨境与个人信息, widget: switch }
+  - { name: has_contact, label: 是否包含联系方式, type: boolean, default: false, import: true, export: true, group: 跨境与个人信息, widget: switch }
+  - { name: is_cross_border, label: 是否跨境传输, type: boolean, default: false, import: true, export: true, group: 跨境与个人信息, widget: switch }
+  - { name: has_cross_border_assessment, label: 是否完成出境评估, type: boolean, default: false, requiredWhen: is_cross_border == true, import: true, export: true, group: 跨境与个人信息, widget: switch }
+  - { name: assessment_result, label: 评估结果, type: string, maxLength: 100, import: true, export: true, group: 跨境与个人信息, widget: text }
+  - { name: security_measures, label: 安全措施, type: string, required: true, import: true, export: true, group: 安全措施, widget: textarea }
+  - { name: remarks, label: 备注, type: string, import: true, export: true, group: 其他, widget: textarea }

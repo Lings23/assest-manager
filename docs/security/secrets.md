@@ -22,7 +22,15 @@
 
 ## 阶段二变量
 
-IAM 引入 RS256 后应增加 Access Token 私钥、公钥或密钥标识。私钥只能进入 IAM 服务，网关和其他服务只持有验证所需的公钥。Refresh Token 只在浏览器 HttpOnly Cookie 中传输，服务端数据库仅保存哈希。
+| 变量 | 用途 | 生产要求 |
+|---|---|---|
+| `IAM_PRIVATE_KEY` / `IAM_PRIVATE_KEY_FILE` | RS256 Access Token 私钥 | 优先挂载只读文件；不得提交、写入镜像或普通日志 |
+| `IAM_TOKEN_ISSUER` | Token 签发者 | 固定为目标环境可识别值 |
+| `IAM_TOKEN_AUDIENCE` | Token 受众 | 固定为资产治理平台 API |
+| `IAM_BOOTSTRAP_ADMIN_PASSWORD` | 首次管理员初始密码 | 随机且至少 12 位；首次登录后强制修改 |
+| `IAM_COOKIE_SECURE` | Refresh Cookie 仅 HTTPS | 生产必须为 `true` |
+
+IAM 未配置私钥时只允许在本地开发中生成进程级临时 RSA 密钥，重启后 Access Token 失效。私钥只能进入 IAM 服务。Refresh Token 只在浏览器 HttpOnly Cookie 中传输，服务端数据库仅保存哈希。
 
 ## GitHub 配置
 

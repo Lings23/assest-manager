@@ -1,0 +1,28 @@
+type: hardware-software
+title: 信息化软硬件清单
+version: 1
+compatibility: backward
+migration: 日期字符串转换为 PostgreSQL date，无法解析的数据进入迁移错误报告。
+storage:
+  table: hardware_software_assets
+fields:
+  - { name: asset_name, label: 资产名称, type: string, required: true, maxLength: 200, searchable: true, sortable: true, import: true, export: true, list: true, group: 基本信息, widget: text }
+  - { name: category, label: 类别, type: string, required: true, maxLength: 100, filterable: true, import: true, export: true, list: true, group: 基本信息, widget: text }
+  - { name: brand, label: 品牌, type: string, required: true, maxLength: 100, filterable: true, import: true, export: true, list: true, group: 基本信息, widget: text }
+  - { name: model, label: 型号, type: string, required: true, maxLength: 100, searchable: true, import: true, export: true, list: true, group: 基本信息, widget: text }
+  - { name: quantity, label: 数量, type: integer, required: true, minimum: 1, sortable: true, import: true, export: true, group: 基本信息, widget: number }
+  - { name: department, label: 使用部门, type: string, required: true, maxLength: 100, filterable: true, import: true, export: true, list: true, group: 使用信息, widget: text }
+  - { name: responsible_person, label: 责任人, type: string, required: true, maxLength: 50, import: true, export: true, list: true, sensitive: true, group: 使用信息, widget: text }
+  - { name: user, label: 使用人, type: string, maxLength: 50, import: true, export: true, sensitive: true, group: 使用信息, widget: text }
+  - { name: location, label: 存放位置, type: string, required: true, maxLength: 200, filterable: true, import: true, export: true, list: true, group: 使用信息, widget: text }
+  - { name: use_status, label: 使用状态, type: integer, required: true, filterable: true, import: true, export: true, list: true, group: 状态, widget: select, enum: [{ value: 0, label: 在网 }, { value: 1, label: 不在网 }, { value: 2, label: 闲置 }, { value: 3, label: 报废 }] }
+  - { name: device_status, label: 设备状态, type: integer, filterable: true, import: true, export: true, group: 状态, widget: select, enum: [{ value: 0, label: 正常 }, { value: 1, label: 故障 }, { value: 2, label: 维修中 }] }
+  - { name: network, label: 所属网络, type: string, required: true, maxLength: 100, filterable: true, import: true, export: true, group: 网络信息, widget: text }
+  - { name: ip_address, label: IP 地址, type: string, maxLength: 50, searchable: true, import: true, export: true, group: 网络信息, widget: text }
+  - { name: mac_address, label: MAC 地址, type: string, maxLength: 50, searchable: true, import: true, export: true, group: 网络信息, widget: text }
+  - { name: os_version, label: 操作系统版本, type: string, maxLength: 100, filterable: true, import: true, export: true, group: 软件信息, widget: text }
+  - { name: start_use_date, label: 启用日期, type: date, required: true, sortable: true, import: true, export: true, group: 生命周期, widget: date }
+  - { name: warranty_end_date, label: 质保截止日期, type: date, sortable: true, import: true, export: true, group: 生命周期, widget: date }
+  - { name: asset_life, label: 资产寿命, type: string, required: true, maxLength: 50, import: true, export: true, group: 生命周期, widget: text }
+  - { name: supplier, label: 供应商, type: string, maxLength: 200, searchable: true, import: true, export: true, group: 采购信息, widget: text }
+  - { name: remarks, label: 备注, type: string, import: true, export: true, group: 其他, widget: textarea }

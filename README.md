@@ -5,7 +5,7 @@
 - 根目录 `main.go`、`internal/`、`web/`：Go、SQLite 和嵌入式前端组成的旧系统，已进入功能冻结。
 - `platform/`、`apps/web/`、`api/`、`deploy/`：新平台 Monorepo 工程基线，新业务统一在此建设。
 
-阶段一完成了旧系统安全止血以及新平台工程骨架。归档结论见[阶段一工程化改造总结](docs/phases/phase1-summary.md)，当前阶段和验收证据见[改造状态](改造状态.md)，总体路线见[工程化改造计划](工程化改造计划.md)。
+阶段一完成了旧系统安全止血以及新平台工程骨架，阶段二完成了 IAM 与七类资产元数据引擎。归档结论见[阶段二工程化改造总结](docs/phases/phase2-summary.md)，当前阶段和验收证据见[改造状态](改造状态.md)，总体路线见[工程化改造计划](工程化改造计划.md)。
 
 ## 功能范围
 
@@ -29,7 +29,7 @@
 
 旧系统没有完整的用户管理、审计写入、自动备份恢复和 Excel 导出；这些能力不能仅根据历史文档或空目录视为已经实现。
 
-新平台阶段一只提供可运行的工程骨架，IAM、资产 Schema、审批、任务和报表业务将在后续阶段实现。
+新平台现已提供持久化 IAM、角色和部门数据范围、七类 Schema 驱动资产 CRUD、软删除/恢复、乐观锁和基础版本。审批、异步任务、完整导入导出和报表仍按后续阶段实现。
 
 ## 环境要求
 
@@ -77,6 +77,7 @@ go run .
 ```powershell
 # OpenAPI 生成一致性
 go run ./tools/contractgen -check
+go run ./tools/schema-gen -check
 
 # 旧系统测试
 go test -count=1 ./...
@@ -90,6 +91,7 @@ Pop-Location
 Push-Location apps/web
 npm ci
 npm run typecheck
+npm run test -- --run
 npm run build
 Pop-Location
 ```
@@ -109,11 +111,12 @@ make compose-smoke
 api/openapi/                 公共 REST 契约
 apps/web/                    Vue 3 + TypeScript 前端
 platform/cmd/gateway/        API Gateway
-platform/cmd/iam-service/    IAM 服务骨架
-platform/cmd/asset-service/  资产服务骨架
+platform/cmd/iam-service/    IAM 服务
+platform/cmd/asset-service/  Schema 驱动资产服务
 platform/cmd/governance-service/ 治理服务骨架
 platform/cmd/task-report-service/ 任务与报表服务骨架
 platform/internal/servicekit/ 公共工程能力
+schemas/assets/              七类资产定义单一来源
 deploy/                      Compose 初始化和部署资产
 docs/                        架构、冻结、分支及安全规范
 internal/、web/、main.go     已冻结的旧系统
@@ -124,5 +127,6 @@ internal/、web/、main.go     已冻结的旧系统
 - 新业务不得继续加入旧系统目录，冻结规则见[旧系统功能冻结](docs/legacy-freeze.md)。
 - 分支和发布流程见[分支与发布策略](docs/development/branching-strategy.md)。
 - 密钥处理规则见[密钥与敏感配置管理](docs/security/secrets.md)。
+- 新平台授权规则见[阶段二权限矩阵](docs/security/phase2-permissions.md)。
 - OpenAPI 修改后运行 `go generate .`，CI 会检查生成产物是否漂移。
 - 前端和后端不得提交 `.env`、数据库、私钥、Token、运行日志或构建产物。

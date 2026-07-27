@@ -1,0 +1,54 @@
+type: system-info
+title: 信息系统清单
+version: 1
+compatibility: backward
+migration: 日期和整数枚举按 Schema 校验后迁移，条件必填字段不满足时进入错误报告。
+storage:
+  table: system_info_assets
+fields:
+  - { name: system_name, label: 系统名称, type: string, required: true, maxLength: 200, searchable: true, sortable: true, import: true, export: true, list: true, group: 基本信息, widget: text }
+  - { name: subsystems, label: 子系统, type: string, import: true, export: true, group: 基本信息, widget: textarea }
+  - { name: deploy_location, label: 部署位置, type: string, required: true, maxLength: 200, searchable: true, filterable: true, import: true, export: true, list: true, group: 部署网络, widget: text }
+  - { name: network_name, label: 网络名称, type: string, required: true, maxLength: 100, filterable: true, import: true, export: true, group: 部署网络, widget: text }
+  - { name: network_type, label: 网络类型, type: integer, required: true, filterable: true, import: true, export: true, list: true, group: 部署网络, widget: select, enum: [{ value: 0, label: 互联网 }, { value: 1, label: 专网 }, { value: 2, label: 互联网和专网 }] }
+  - { name: run_status, label: 运行状态, type: integer, required: true, filterable: true, import: true, export: true, list: true, group: 基本信息, widget: select, enum: [{ value: 0, label: 正式运行 }, { value: 1, label: 试运行 }, { value: 2, label: 在建 }, { value: 3, label: 临时下线 }, { value: 4, label: 停用 }] }
+  - { name: build_time, label: 建设时间, type: date, required: true, sortable: true, import: true, export: true, group: 基本信息, widget: date }
+  - { name: has_media_platform, label: 是否含新媒体平台, type: boolean, default: false, filterable: true, import: true, export: true, group: 应用信息, widget: switch }
+  - { name: mobile_app_type, label: 移动应用类型, type: integer, filterable: true, import: true, export: true, group: 应用信息, widget: select, enum: [{ value: 0, label: 无 }, { value: 1, label: APP }, { value: 2, label: 小程序 }, { value: 3, label: 快应用 }, { value: 4, label: 其他 }] }
+  - { name: domain_or_ip, label: 域名或 IP, type: string, required: true, maxLength: 200, searchable: true, import: true, export: true, group: 应用信息, widget: text }
+  - { name: function_modules, label: 功能模块, type: string, import: true, export: true, group: 应用信息, widget: textarea }
+  - { name: has_external_interface, label: 是否与外部系统对接, type: boolean, default: false, filterable: true, import: true, export: true, group: 接口信息, widget: switch }
+  - { name: interface_scope, label: 对接范围和方式, type: string, requiredWhen: has_external_interface == true, import: true, export: true, group: 接口信息, widget: textarea }
+  - { name: supervisory_dept, label: 主管部门, type: string, required: true, maxLength: 100, filterable: true, import: true, export: true, group: 责任信息, widget: department }
+  - { name: app_responsible_dept, label: 应用责任部门, type: string, required: true, maxLength: 100, filterable: true, import: true, export: true, group: 责任信息, widget: department }
+  - { name: network_responsible_dept, label: 网络责任部门, type: string, required: true, maxLength: 100, filterable: true, import: true, export: true, group: 责任信息, widget: department }
+  - { name: maintenance_mode, label: 运维方式, type: integer, required: true, filterable: true, import: true, export: true, group: 建设运维, widget: select, enum: [{ value: 0, label: 现场运维 }, { value: 1, label: 远程运维 }, { value: 2, label: 现场和远程运维 }] }
+  - { name: construction_dept, label: 建设部门, type: string, required: true, maxLength: 100, import: true, export: true, group: 建设运维, widget: department }
+  - { name: maintenance_vendor, label: 运维厂商, type: string, maxLength: 100, import: true, export: true, group: 建设运维, widget: text }
+  - { name: integration_vendor, label: 集成厂商, type: string, maxLength: 100, import: true, export: true, group: 建设运维, widget: text }
+  - { name: development_vendor, label: 开发厂商, type: string, maxLength: 100, import: true, export: true, group: 建设运维, widget: text }
+  - { name: system_contact, label: 系统联系人, type: string, required: true, maxLength: 100, import: true, export: true, sensitive: true, group: 联系信息, widget: text }
+  - { name: security_contact, label: 安全联系人, type: string, required: true, maxLength: 100, import: true, export: true, sensitive: true, group: 联系信息, widget: text }
+  - { name: admin_contact, label: 管理员联系人, type: string, required: true, maxLength: 100, import: true, export: true, sensitive: true, group: 联系信息, widget: text }
+  - { name: data_content, label: 数据内容, type: string, required: true, import: true, export: true, group: 数据信息, widget: textarea }
+  - { name: has_personal_info, label: 是否含个人信息, type: boolean, default: false, filterable: true, import: true, export: true, group: 数据信息, widget: switch }
+  - { name: important_data_risk, label: 重要数据风险, type: string, maxLength: 200, import: true, export: true, group: 数据信息, widget: textarea }
+  - { name: data_storage_location, label: 数据存储位置, type: string, required: true, maxLength: 100, filterable: true, import: true, export: true, group: 数据信息, widget: text }
+  - { name: has_cloud_deploy, label: 是否上云, type: boolean, default: false, filterable: true, import: true, export: true, group: 云与安全, widget: switch }
+  - { name: cloud_provider, label: 云服务商, type: string, maxLength: 100, requiredWhen: has_cloud_deploy == true, import: true, export: true, group: 云与安全, widget: text }
+  - { name: cloud_security_review, label: 云安全审查, type: integer, filterable: true, import: true, export: true, group: 云与安全, widget: select, enum: [{ value: 0, label: 未填写 }, { value: 1, label: 通过 }, { value: 2, label: 未通过 }, { value: 3, label: 未参加 }] }
+  - { name: security_level, label: 等保级别, type: integer, required: true, filterable: true, import: true, export: true, group: 云与安全, widget: select, enum: [{ value: 0, label: 一级 }, { value: 1, label: 二级 }, { value: 2, label: 三级 }, { value: 3, label: 未定级 }] }
+  - { name: security_record_no, label: 等保备案号, type: string, maxLength: 100, import: true, export: true, group: 云与安全, widget: text }
+  - { name: security_assessment, label: 等保测评结果, type: integer, filterable: true, import: true, export: true, group: 云与安全, widget: select, enum: [{ value: 0, label: 未填写 }, { value: 1, label: 符合 }, { value: 2, label: 基本符合 }, { value: 3, label: 不符合 }] }
+  - { name: crypto_assessment, label: 密评结果, type: integer, filterable: true, import: true, export: true, group: 云与安全, widget: select, enum: [{ value: 0, label: 未填写 }, { value: 1, label: 符合 }, { value: 2, label: 基本符合 }, { value: 3, label: 不符合 }] }
+  - { name: backup_type, label: 灾备类型, type: integer, required: true, filterable: true, import: true, export: true, group: 云与安全, widget: select, enum: [{ value: 0, label: 数据灾备 }, { value: 1, label: 系统灾备 }, { value: 2, label: 数据和系统灾备 }, { value: 3, label: 无灾备 }] }
+  - { name: log_retention, label: 日志留存时间, type: string, required: true, maxLength: 50, import: true, export: true, group: 云与安全, widget: text }
+  - { name: security_devices, label: 安全设备, type: string, import: true, export: true, group: 技术栈, widget: textarea }
+  - { name: network_devices, label: 网络设备, type: string, import: true, export: true, group: 技术栈, widget: textarea }
+  - { name: os_info, label: 操作系统, type: string, import: true, export: true, group: 技术栈, widget: textarea }
+  - { name: database_info, label: 数据库, type: string, import: true, export: true, group: 技术栈, widget: textarea }
+  - { name: middleware_info, label: 中间件, type: string, import: true, export: true, group: 技术栈, widget: textarea }
+  - { name: dev_framework, label: 开发框架, type: string, import: true, export: true, group: 技术栈, widget: textarea }
+  - { name: third_party_components, label: 第三方组件, type: string, import: true, export: true, group: 技术栈, widget: textarea }
+  - { name: computing_rental, label: 算力租用情况, type: string, import: true, export: true, group: 技术栈, widget: textarea }
+  - { name: remarks, label: 备注, type: string, import: true, export: true, group: 其他, widget: textarea }

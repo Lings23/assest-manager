@@ -24,7 +24,7 @@ func LoadConfig(serviceName, defaultAddr string) (Config, error) {
 		ServiceName:     strings.TrimSpace(serviceName),
 		HTTPAddr:        envOrDefault("HTTP_ADDR", defaultAddr),
 		ShutdownTimeout: 10 * time.Second,
-		MaxBodyBytes:    10 << 20,
+		MaxBodyBytes:    1 << 20,
 		AllowedOrigins:  splitList(os.Getenv("CORS_ALLOWED_ORIGINS")),
 	}
 	if value := strings.TrimSpace(os.Getenv("SHUTDOWN_TIMEOUT")); value != "" {

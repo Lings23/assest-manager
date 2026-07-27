@@ -1,0 +1,36 @@
+type: supply-chain
+title: 供应链清单
+version: 1
+compatibility: backward
+migration: 旧整数供应商类型按原编码映射。
+storage:
+  table: supply_chain_assets
+fields:
+  - { name: system_name, label: 系统名称, type: string, required: true, maxLength: 200, searchable: true, filterable: true, import: true, export: true, list: true, group: 基本信息, widget: text }
+  - name: supplier_type
+    label: 供应商类型
+    type: integer
+    required: true
+    filterable: true
+    import: true
+    export: true
+    list: true
+    group: 基本信息
+    widget: select
+    enum:
+      - { value: 0, label: 设计方 }
+      - { value: 1, label: 开发方 }
+      - { value: 2, label: 承建方 }
+      - { value: 3, label: 网络安全产品提供方 }
+      - { value: 4, label: 信息化产品提供方 }
+      - { value: 5, label: 运维方 }
+      - { value: 6, label: 安全服务提供方 }
+      - { value: 7, label: 信息安全评测方 }
+      - { value: 8, label: 其他参与方 }
+  - { name: company_name, label: 公司名称, type: string, required: true, maxLength: 200, searchable: true, sortable: true, import: true, export: true, list: true, group: 供应商信息, widget: text }
+  - { name: province_city, label: 所在省市, type: string, required: true, maxLength: 100, filterable: true, import: true, export: true, list: true, group: 供应商信息, widget: text }
+  - { name: address, label: 详细地址, type: string, required: true, maxLength: 300, import: true, export: true, group: 供应商信息, widget: text }
+  - { name: contact_person, label: 联系人, type: string, required: true, maxLength: 50, import: true, export: true, list: true, sensitive: true, group: 联系信息, widget: text }
+  - { name: contact_phone, label: 联系电话, type: string, required: true, maxLength: 50, import: true, export: true, list: true, sensitive: true, group: 联系信息, widget: text }
+  - { name: service_content, label: 服务内容, type: string, required: true, import: true, export: true, group: 服务信息, widget: textarea }
+  - { name: remarks, label: 备注, type: string, import: true, export: true, group: 其他, widget: textarea }

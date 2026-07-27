@@ -65,6 +65,28 @@ func TestNotFoundUsesStandardError(t *testing.T) {
 	}
 }
 
+func TestWildcardRoutePopulatesPathValues(t *testing.T) {
+	cfg := Config{ServiceName: "test", HTTPAddr: ":8080", ShutdownTimeout: time.Second, MaxBodyBytes: 1024}
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	handler := NewHandler(cfg, logger, func(mux *http.ServeMux) {
+		mux.HandleFunc("GET /api/v1/assets/{type}/{id}", func(w http.ResponseWriter, r *http.Request) {
+			WriteJSON(w, http.StatusOK, map[string]string{
+				"type": r.PathValue("type"),
+				"id":   r.PathValue("id"),
+			})
+		})
+	})
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(
+		http.MethodGet, "/api/v1/assets/system-info/asset-1", nil,
+	))
+	if response.Code != http.StatusOK ||
+		!strings.Contains(response.Body.String(), `"type":"system-info"`) ||
+		!strings.Contains(response.Body.String(), `"id":"asset-1"`) {
+		t.Fatalf("wildcard values missing: status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
 func TestCORSUsesExactAllowlist(t *testing.T) {
 	cfg := Config{ServiceName: "test", HTTPAddr: ":8080", ShutdownTimeout: time.Second, MaxBodyBytes: 1024, AllowedOrigins: []string{"https://console.example"}}
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))

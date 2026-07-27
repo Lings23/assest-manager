@@ -1,0 +1,39 @@
+type: software-statistics
+title: 软件信息统计
+version: 1
+compatibility: backward
+migration: 金额统一为 numeric(18,2)，累计字段在后续迁移工具中重新核对。
+storage:
+  table: software_statistics_assets
+fields:
+  - { name: report_year, label: 填报年度, type: integer, required: true, minimum: 2000, maximum: 2100, filterable: true, sortable: true, import: true, export: true, list: true, group: 基本信息, widget: number }
+  - { name: department_name, label: 部门名称, type: string, required: true, maxLength: 100, searchable: true, filterable: true, import: true, export: true, list: true, group: 基本信息, widget: department }
+  - { name: department_head, label: 部门负责人, type: string, maxLength: 50, import: true, export: true, list: true, sensitive: true, group: 基本信息, widget: text }
+  - { name: head_phone, label: 负责人电话, type: string, maxLength: 50, import: true, export: true, sensitive: true, group: 基本信息, widget: text }
+  - { name: department_fax, label: 部门传真, type: string, maxLength: 50, import: true, export: true, sensitive: true, group: 基本信息, widget: text }
+  - { name: registration_date, label: 登记日期, type: date, import: true, export: true, group: 基本信息, widget: date }
+  - { name: is_legalization_done, label: 是否完成正版化, type: boolean, default: false, filterable: true, import: true, export: true, list: true, group: 基本信息, widget: switch }
+  - { name: total_staff_count, label: 人员总数, type: integer, minimum: 0, import: true, export: true, group: 人员设备, widget: number }
+  - { name: computer_user_count, label: 计算机用户数, type: integer, minimum: 0, import: true, export: true, group: 人员设备, widget: number }
+  - { name: server_count, label: 服务器数, type: integer, minimum: 0, import: true, export: true, group: 人员设备, widget: number }
+  - { name: desktop_count, label: 台式机数, type: integer, minimum: 0, import: true, export: true, group: 人员设备, widget: number }
+  - { name: laptop_count, label: 笔记本数, type: integer, minimum: 0, import: true, export: true, group: 人员设备, widget: number }
+  - { name: pur_os_dom_lic, label: 采购国产操作系统许可数, type: integer, minimum: 0, import: true, export: true, group: 本年采购, widget: number }
+  - { name: pur_os_dom_amt, label: 采购国产操作系统金额, type: number, minimum: 0, import: true, export: true, group: 本年采购, widget: money }
+  - { name: pur_os_for_lic, label: 采购国外操作系统许可数, type: integer, minimum: 0, import: true, export: true, group: 本年采购, widget: number }
+  - { name: pur_os_for_amt, label: 采购国外操作系统金额, type: number, minimum: 0, import: true, export: true, group: 本年采购, widget: money }
+  - { name: pur_office_dom_lic, label: 采购国产办公软件许可数, type: integer, minimum: 0, import: true, export: true, group: 本年采购, widget: number }
+  - { name: pur_office_dom_amt, label: 采购国产办公软件金额, type: number, minimum: 0, import: true, export: true, group: 本年采购, widget: money }
+  - { name: pur_office_for_lic, label: 采购国外办公软件许可数, type: integer, minimum: 0, import: true, export: true, group: 本年采购, widget: number }
+  - { name: pur_office_for_amt, label: 采购国外办公软件金额, type: number, minimum: 0, import: true, export: true, group: 本年采购, widget: money }
+  - { name: pur_av_dom_lic, label: 采购国产杀毒软件许可数, type: integer, minimum: 0, import: true, export: true, group: 本年采购, widget: number }
+  - { name: pur_av_dom_amt, label: 采购国产杀毒软件金额, type: number, minimum: 0, import: true, export: true, group: 本年采购, widget: money }
+  - { name: pur_av_for_lic, label: 采购国外杀毒软件许可数, type: integer, minimum: 0, import: true, export: true, group: 本年采购, widget: number }
+  - { name: pur_av_for_amt, label: 采购国外杀毒软件金额, type: number, minimum: 0, import: true, export: true, group: 本年采购, widget: money }
+  - { name: cum_os_dom_lic, label: 累计国产操作系统许可数, type: integer, minimum: 0, import: true, export: true, group: 累计数量, widget: number }
+  - { name: cum_os_for_lic, label: 累计国外操作系统许可数, type: integer, minimum: 0, import: true, export: true, group: 累计数量, widget: number }
+  - { name: cum_office_dom_lic, label: 累计国产办公软件许可数, type: integer, minimum: 0, import: true, export: true, group: 累计数量, widget: number }
+  - { name: cum_office_for_lic, label: 累计国外办公软件许可数, type: integer, minimum: 0, import: true, export: true, group: 累计数量, widget: number }
+  - { name: cum_av_dom_lic, label: 累计国产杀毒软件许可数, type: integer, minimum: 0, import: true, export: true, group: 累计数量, widget: number }
+  - { name: cum_av_for_lic, label: 累计国外杀毒软件许可数, type: integer, minimum: 0, import: true, export: true, group: 累计数量, widget: number }
+  - { name: modification_log, label: 修改说明, type: string, import: true, export: true, group: 其他, widget: textarea }

@@ -15,6 +15,7 @@ body {
 .app-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   color: #fff;
   background: #17324d;
 }
@@ -25,6 +26,58 @@ body {
   font-size: 13px;
 }
 
-.capabilities {
-  margin-top: 20px;
+.session-actions,
+.asset-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.asset-toolbar {
+  margin-bottom: 16px;
+}
+
+.type-select {
+  min-width: 220px;
+}
+
+.schema-alert {
+  margin-bottom: 16px;
+}
+
+.form-section {
+  padding: 4px 0 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.form-section h3 {
+  color: #17324d;
+}
+
+.login-page,
+.boot-loading {
+  display: grid;
+  min-height: calc(100vh - 100px);
+  place-items: center;
+}
+
+.login-card {
+  width: min(420px, calc(100vw - 40px));
+}
+
+.login-card h1 {
+  margin: 0;
+}
+
+.login-card p {
+  margin-bottom: 0;
+  color: #64748b;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.boot-loading {
+  font-size: 32px;
 }

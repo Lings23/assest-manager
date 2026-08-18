@@ -60,10 +60,16 @@ services:
       args: { SERVICE: iam-service }
     environment: &service-env
       SHUTDOWN_TIMEOUT: 10s
-      MAX_BODY_BYTES: 10485760
+      MAX_BODY_BYTES: 1048576
       DATABASE_URL: postgres://${POSTGRES_USER:-asset}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-asset_platform}?sslmode=disable
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-asset}:${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}@rabbitmq:5672/
       S3_ENDPOINT: http://minio:9000
+      IAM_BOOTSTRAP_ADMIN_USERNAME: ${IAM_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      IAM_BOOTSTRAP_ADMIN_PASSWORD: ${IAM_BOOTSTRAP_ADMIN_PASSWORD:?IAM_BOOTSTRAP_ADMIN_PASSWORD is required}
+      IAM_COOKIE_SECURE: ${IAM_COOKIE_SECURE:-false}
+      IAM_TOKEN_ISSUER: ${IAM_TOKEN_ISSUER:-asset-platform-iam}
+      IAM_TOKEN_AUDIENCE: ${IAM_TOKEN_AUDIENCE:-asset-platform}
+      IAM_SERVICE_URL: http://iam-service:8081
     depends_on: &infra-ready
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
@@ -124,7 +130,7 @@ services:
       ASSET_SERVICE_URL: http://asset-service:8082
       GOVERNANCE_SERVICE_URL: http://governance-service:8083
       TASK_REPORT_SERVICE_URL: http://task-report-service:8084
-      CORS_ALLOWED_ORIGINS: http://localhost:${WEB_PORT:-8088},http://localhost:5173
+      CORS_ALLOWED_ORIGINS: http://localhost:${WEB_PORT:-8088},http://127.0.0.1:${WEB_PORT:-8088},http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
     depends_on:

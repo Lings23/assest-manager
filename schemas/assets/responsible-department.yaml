@@ -1,0 +1,14 @@
+type: responsible-department
+title: 责任部门
+version: 1
+compatibility: backward
+migration: 从旧 ResponsibleDepartment 模型迁移，部门名称作为业务唯一键候选。
+storage:
+  table: responsible_department_assets
+fields:
+  - { name: department_name, label: 部门名称, type: string, required: true, maxLength: 100, searchable: true, sortable: true, filterable: true, import: true, export: true, list: true, group: 基本信息, widget: text }
+  - { name: department_code, label: 部门编码, type: string, maxLength: 50, searchable: true, import: true, export: true, list: true, group: 基本信息, widget: text }
+  - { name: department_head, label: 部门负责人, type: string, maxLength: 50, searchable: true, import: true, export: true, list: true, group: 联系信息, widget: text }
+  - { name: head_phone, label: 负责人电话, type: string, maxLength: 50, import: true, export: true, list: true, sensitive: true, group: 联系信息, widget: text }
+  - { name: department_fax, label: 部门传真, type: string, maxLength: 50, import: true, export: true, list: true, sensitive: true, group: 联系信息, widget: text }
+  - { name: remarks, label: 备注, type: string, import: true, export: true, group: 其他, widget: textarea }

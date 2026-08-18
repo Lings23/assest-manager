@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Asset Governance Platform API
-  version: 1.0.0-baseline
-  description: 阶段一公共契约基线。业务实现将在后续阶段按 Schema 和领域边界接入。
+  version: 2.0.0-phase2
+  description: 阶段二 IAM 与元数据资产引擎公共契约。
   license:
     name: Proprietary
 servers:
@@ -43,7 +43,11 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/LoginRequest" }
       responses:
-        "200": { $ref: "#/components/responses/Success" }
+        "200":
+          description: 登录成功并通过安全 Cookie 设置刷新令牌
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenResponse" }
         "401": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
   /auth/refresh:
@@ -52,7 +56,11 @@ paths:
       operationId: refreshToken
       security: []
       responses:
-        "200": { $ref: "#/components/responses/Success" }
+        "200":
+          description: 令牌轮换成功
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenResponse" }
         "401": { $ref: "#/components/responses/Error" }
   /auth/logout:
     post:
@@ -61,6 +69,19 @@ paths:
       responses:
         "204": { description: 已注销 }
         "401": { $ref: "#/components/responses/Error" }
+  /auth/change-password:
+    post:
+      summary: 修改当前用户密码并撤销已有会话
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChangePasswordRequest" }
+      responses:
+        "204": { description: 密码已修改，调用方需要重新登录 }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
   /auth/me:
     get:
       summary: 获取当前登录用户
@@ -68,6 +89,78 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "401": { $ref: "#/components/responses/Error" }
+  /auth/authorize:
+    post:
+      summary: 获取当前用户的服务端授权上下文
+      operationId: authorizeAction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [action]
+              properties:
+                action: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /users:
+    get:
+      summary: 管理员查询用户
+      operationId: listUsers
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      summary: 管理员创建用户
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateUserRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /users/{id}/access:
+    parameters:
+      - $ref: "#/components/parameters/ResourceID"
+    patch:
+      summary: 管理员更新用户角色、部门范围和启用状态
+      operationId: updateUserAccess
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateUserAccessRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /departments:
+    get:
+      summary: 管理员查询部门树
+      operationId: listDepartments
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      summary: 管理员创建部门
+      operationId: createDepartment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateDepartmentRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
   /asset-types:
     get:
       summary: 查询可用资产类型
@@ -100,7 +193,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: true }
+            schema: { $ref: "#/components/schemas/CreateAssetRequest" }
       responses:
         "201": { $ref: "#/components/responses/Success" }
         "400": { $ref: "#/components/responses/Error" }
@@ -117,6 +210,11 @@ paths:
     patch:
       summary: 更新单条资产
       operationId: updateAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateAssetRequest" }
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "409": { $ref: "#/components/responses/Error" }
@@ -133,9 +231,26 @@ paths:
     post:
       summary: 恢复已软删除资产
       operationId: restoreAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VersionRequest" }
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /assets/{type}/{id}/versions:
+    parameters:
+      - $ref: "#/components/parameters/AssetType"
+      - $ref: "#/components/parameters/ResourceID"
+    get:
+      summary: 查询资产基础版本记录
+      operationId: listAssetVersions
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /import-jobs:
     get:
       summary: 查询导入任务
@@ -229,6 +344,111 @@ components:
       properties:
         username: { type: string, minLength: 1, maxLength: 50 }
         password: { type: string, minLength: 12, maxLength: 256 }
+    ChangePasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [current_password, new_password]
+      properties:
+        current_password: { type: string, minLength: 1, maxLength: 256 }
+        new_password: { type: string, minLength: 12, maxLength: 256 }
+    Principal:
+      type: object
+      additionalProperties: false
+      required: [user_id, username, display_name, roles, data_scope, permissions_version, must_change_password]
+      properties:
+        user_id: { type: string }
+        username: { type: string }
+        display_name: { type: string }
+        department_id: { type: string }
+        roles:
+          type: array
+          items: { type: string, enum: [reporter, reviewer, auditor, admin] }
+        data_scope: { type: string, enum: [own, department, descendants, global] }
+        permissions_version: { type: integer, format: int64 }
+        must_change_password: { type: boolean }
+    TokenResponse:
+      type: object
+      additionalProperties: false
+      required: [access_token, token_type, expires_in, user]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, const: Bearer }
+        expires_in: { type: integer, const: 900 }
+        user: { $ref: "#/components/schemas/Principal" }
+    CreateUserRequest:
+      type: object
+      additionalProperties: false
+      required: [username, display_name, password, roles, data_scope]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 50 }
+        display_name: { type: string, minLength: 1, maxLength: 100 }
+        password: { type: string, minLength: 12, maxLength: 256 }
+        department_id: { type: string }
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, enum: [reporter, reviewer, auditor, admin] }
+        data_scope: { type: string, enum: [own, department, descendants, global] }
+        must_change_password: { type: boolean }
+    UpdateUserAccessRequest:
+      type: object
+      additionalProperties: false
+      required: [enabled, roles, data_scope]
+      properties:
+        enabled: { type: boolean }
+        department_id: { type: string }
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, enum: [reporter, reviewer, auditor, admin] }
+        data_scope: { type: string, enum: [own, department, descendants, global] }
+    CreateDepartmentRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        parent_id: { type: string }
+    AssetFields:
+      oneOf:
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/ResponsibleDepartmentAsset" }
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/SupplyChainAsset" }
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/VulnerabilityAsset" }
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/HardwareSoftwareAsset" }
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/SoftwareStatisticsAsset" }
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/DataAsset" }
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/SystemInfoAsset" }
+    AssetPatchFields:
+      oneOf:
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/ResponsibleDepartmentAssetPatch" }
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/SupplyChainAssetPatch" }
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/VulnerabilityAssetPatch" }
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/HardwareSoftwareAssetPatch" }
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/SoftwareStatisticsAssetPatch" }
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/DataAssetPatch" }
+        - { $ref: "../generated/assets.schemas.yaml#/components/schemas/SystemInfoAssetPatch" }
+    CreateAssetRequest:
+      type: object
+      additionalProperties: false
+      required: [fields]
+      properties:
+        department_id: { type: string }
+        fields: { $ref: "#/components/schemas/AssetFields" }
+    UpdateAssetRequest:
+      type: object
+      additionalProperties: false
+      required: [version, fields]
+      properties:
+        version: { type: integer, format: int64, minimum: 1 }
+        fields: { $ref: "#/components/schemas/AssetPatchFields" }
+    VersionRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: { type: integer, format: int64, minimum: 1 }
     Error:
       type: object
       additionalProperties: false

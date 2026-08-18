@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.25.12"
+          go-version: "1.25.13"
           cache-dependency-path: |
             go.sum
             platform/go.mod
@@ -56,6 +56,7 @@ jobs:
       - name: Contract and formatting
         run: |
           go run ./tools/contractgen -check
+          go run ./tools/schema-gen -check
           test -z "$(find . \( -path ./.git -o -path ./apps/web/node_modules \) -prune -o -name '*.go' -print | xargs gofmt -l)"
       - name: Go tests and vet
         run: |
@@ -69,6 +70,7 @@ jobs:
         run: |
           npm ci
           npm run typecheck
+          npm run test -- --run
           npm run build
 
   release-checks:
@@ -82,7 +84,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.25.12"
+          go-version: "1.25.13"
           cache-dependency-path: |
             go.sum
             platform/go.mod

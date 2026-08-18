@@ -63,12 +63,14 @@ func NewHandler(cfg Config, logger *slog.Logger, register func(*http.ServeMux)) 
 type routingHandler struct{ mux *http.ServeMux }
 
 func (h routingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	handler, pattern := h.mux.Handler(r)
+	_, pattern := h.mux.Handler(r)
 	if pattern == "" {
 		WriteError(w, r, http.StatusNotFound, "NOT_FOUND", "resource not found")
 		return
 	}
-	handler.ServeHTTP(w, r)
+	// ServeMux.ServeHTTP performs the final match and populates PathValue for
+	// wildcard routes. Calling the Handler result directly loses {type}/{id}.
+	h.mux.ServeHTTP(w, r)
 }
 
 func WriteError(w http.ResponseWriter, r *http.Request, status int, code, message string) {

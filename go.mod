@@ -2,7 +2,7 @@ module asset-manager
 
 go 1.23.0
 
-toolchain go1.25.12
+toolchain go1.25.13
 
 require (
 	github.com/gin-gonic/gin v1.9.1

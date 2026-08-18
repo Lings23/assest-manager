@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 
@@ -7,6 +7,7 @@ const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const title = computed(() => String(route.meta.title ?? '资产治理平台'))
+const routingReady = ref(false)
 
 onMounted(async () => {
   await session.refresh()
@@ -16,6 +17,7 @@ onMounted(async () => {
   } else if (session.authenticated && route.path === '/login') {
     await router.replace('/')
   }
+  routingReady.value = true
 })
 
 async function logout() {
@@ -25,7 +27,7 @@ async function logout() {
 </script>
 
 <template>
-  <el-container v-if="session.initialized" class="app-shell">
+  <el-container v-if="session.initialized && routingReady" class="app-shell">
     <el-header class="app-header">
       <div>
         <strong>资产治理平台</strong>

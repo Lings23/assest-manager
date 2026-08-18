@@ -93,6 +93,13 @@ func proxyFor(name, rawURL string, logger *slog.Logger) (*httputil.ReverseProxy,
 		return nil, fmt.Errorf("invalid %s upstream URL %q", name, rawURL)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	director := proxy.Director
+	proxy.Director = func(r *http.Request) {
+		director(r)
+		// The gateway owns browser CORS. Internal services must not re-evaluate
+		// or duplicate CORS headers for the already-approved external origin.
+		r.Header.Del("Origin")
+	}
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, proxyErr error) {
 		logger.Error("upstream request failed", "upstream", name, "request_id", servicekit.RequestID(r.Context()), "error", proxyErr)
 		servicekit.WriteError(w, r, http.StatusBadGateway, "UPSTREAM_UNAVAILABLE", "upstream service unavailable")

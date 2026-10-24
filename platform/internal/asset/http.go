@@ -15,6 +15,12 @@ type HTTPHandler struct {
 	service *Service
 }
 
+type legacyRequest struct {
+	DepartmentID string         `json:"department_id"`
+	IsDeleted    bool           `json:"is_deleted"`
+	Fields       map[string]any `json:"fields"`
+}
+
 type createRequest struct {
 	DepartmentID string         `json:"department_id"`
 	Fields       map[string]any `json:"fields"`
@@ -35,6 +41,7 @@ func NewHTTPHandler(service *Service) *HTTPHandler {
 
 func (h *HTTPHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/asset-types", h.listTypes)
+	mux.HandleFunc("POST /api/v1/migrations/{type}/{legacyId}", h.migrateLegacy)
 	mux.HandleFunc("GET /api/v1/asset-types/{type}/schema", h.getSchema)
 	mux.HandleFunc("GET /api/v1/assets/{type}", h.list)
 	mux.HandleFunc("POST /api/v1/assets/{type}", h.create)
@@ -45,6 +52,23 @@ func (h *HTTPHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/assets/{type}/{id}/versions", h.versions)
 }
 
+func (h *HTTPHandler) migrateLegacy(w http.ResponseWriter, r *http.Request) {
+	var request legacyRequest
+	if err := decodeRequest(r, &request); err != nil || request.Fields == nil || strings.TrimSpace(r.PathValue("legacyId")) == "" {
+		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "legacy id and fields are required")
+		return
+	}
+	record, created, err := h.service.MigrateLegacy(r.Context(), r.Header.Get("Authorization"), r.PathValue("type"), r.PathValue("legacyId"), request.DepartmentID, request.IsDeleted, request.Fields)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+	}
+	servicekit.WriteJSON(w, status, map[string]any{"asset": record, "created": created})
+}
 func (h *HTTPHandler) listTypes(w http.ResponseWriter, r *http.Request) {
 	if _, err := h.service.authorizer.Authorize(r.Context(), r.Header.Get("Authorization"), "asset:read"); err != nil {
 		h.writeError(w, r, err)

@@ -11,21 +11,25 @@ import (
 
 // Config contains the baseline configuration shared by every new service.
 type Config struct {
-	ServiceName     string
-	HTTPAddr        string
-	ShutdownTimeout time.Duration
-	MaxBodyBytes    int64
-	AllowedOrigins  []string
+	MetricsToken      string
+	DebugPprofAddress string
+	ServiceName       string
+	HTTPAddr          string
+	ShutdownTimeout   time.Duration
+	MaxBodyBytes      int64
+	AllowedOrigins    []string
 }
 
 // LoadConfig reads environment configuration and validates it before startup.
 func LoadConfig(serviceName, defaultAddr string) (Config, error) {
 	cfg := Config{
-		ServiceName:     strings.TrimSpace(serviceName),
-		HTTPAddr:        envOrDefault("HTTP_ADDR", defaultAddr),
-		ShutdownTimeout: 10 * time.Second,
-		MaxBodyBytes:    1 << 20,
-		AllowedOrigins:  splitList(os.Getenv("CORS_ALLOWED_ORIGINS")),
+		MetricsToken:      strings.TrimSpace(os.Getenv("METRICS_TOKEN")),
+		DebugPprofAddress: strings.TrimSpace(os.Getenv("DEBUG_PPROF_ADDR")),
+		ServiceName:       strings.TrimSpace(serviceName),
+		HTTPAddr:          envOrDefault("HTTP_ADDR", defaultAddr),
+		ShutdownTimeout:   10 * time.Second,
+		MaxBodyBytes:      1 << 20,
+		AllowedOrigins:    splitList(os.Getenv("CORS_ALLOWED_ORIGINS")),
 	}
 	if value := strings.TrimSpace(os.Getenv("SHUTDOWN_TIMEOUT")); value != "" {
 		duration, err := time.ParseDuration(value)
@@ -58,6 +62,11 @@ func splitList(value string) []string {
 }
 
 func (c Config) Validate() error {
+	if c.DebugPprofAddress != "" {
+		if err := validatePprofAddress(c.DebugPprofAddress); err != nil {
+			return err
+		}
+	}
 	if c.ServiceName == "" {
 		return fmt.Errorf("service name is required")
 	}

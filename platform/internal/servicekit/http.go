@@ -50,14 +50,15 @@ func NewHandler(cfg Config, logger *slog.Logger, register func(*http.ServeMux)) 
 	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, statusResponse{Status: "ready", Service: cfg.ServiceName})
 	})
+	mux.Handle("GET /metrics/service", MetricsFor(cfg.ServiceName).Handler(cfg.MetricsToken))
 	register(mux)
 
-	return requestIDMiddleware(
+	return MetricsFor(cfg.ServiceName).InstrumentHTTP(mux, requestIDMiddleware(
 		corsMiddleware(cfg.AllowedOrigins,
 			securityHeadersMiddleware(
 				bodyLimitMiddleware(cfg.MaxBodyBytes,
 					loggingMiddleware(logger,
-						recoveryMiddleware(logger, routingHandler{mux: mux}))))))
+						recoveryMiddleware(logger, routingHandler{mux: mux})))))))
 }
 
 type routingHandler struct{ mux *http.ServeMux }
@@ -92,6 +93,7 @@ func requestIDMiddleware(next http.Handler) http.Handler {
 		if requestID == "" || len(requestID) > 128 {
 			requestID = newRequestID()
 		}
+		r.Header.Set("X-Request-ID", requestID)
 		w.Header().Set("X-Request-ID", requestID)
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), requestIDKey, requestID)))
 	})

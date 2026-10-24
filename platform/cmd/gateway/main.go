@@ -74,11 +74,13 @@ func newGatewayHandler(cfg servicekit.Config, upstreams upstreamConfig, logger *
 		registerProxy(mux, iam, "/api/v1/departments")
 		registerProxy(mux, asset, "/api/v1/asset-types")
 		registerProxy(mux, asset, "/api/v1/assets")
+		registerProxy(mux, asset, "/api/v1/migrations")
 		registerProxy(mux, governance, "/api/v1/workflows")
 		registerProxy(mux, governance, "/api/v1/risks")
 		registerProxy(mux, taskReport, "/api/v1/import-jobs")
 		registerProxy(mux, taskReport, "/api/v1/export-jobs")
 		registerProxy(mux, taskReport, "/api/v1/reporting")
+		registerProxy(mux, taskReport, "/api/v1/tasks")
 	}), nil
 }
 
@@ -93,6 +95,7 @@ func proxyFor(name, rawURL string, logger *slog.Logger) (*httputil.ReverseProxy,
 		return nil, fmt.Errorf("invalid %s upstream URL %q", name, rawURL)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = servicekit.ObservedTransport(proxy.Transport, servicekit.MetricsFor("gateway"), map[string]string{"iam-service": "proxy_iam", "asset-service": "proxy_asset", "task-report-service": "proxy_tasks", "governance-service": "proxy_governance"}[name])
 	director := proxy.Director
 	proxy.Director = func(r *http.Request) {
 		director(r)

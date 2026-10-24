@@ -29,7 +29,7 @@ func main() {
 	if databaseURL == "" {
 		log.Fatal("DATABASE_URL is required")
 	}
-	store, err := iam.OpenPostgresStore(ctx, databaseURL)
+	store, err := iam.OpenPostgresStore(ctx, databaseURL, servicekit.MetricsFor(cfg.ServiceName))
 	if err != nil {
 		log.Fatal(err)
 	}

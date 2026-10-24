@@ -1,0 +1,25 @@
+name: asset-amqp-test
+services:
+  postgres:
+    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    environment:
+      POSTGRES_USER: amqp_test
+      POSTGRES_PASSWORD: amqp_test_local
+      POSTGRES_DB: amqp_test
+    ports: ["127.0.0.1:55432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U amqp_test -d amqp_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine@sha256:606d8c0d6b3c18d1da9afc53bc7cdb2a8d5486df91b5a9830e9e07626c9ae281
+    environment:
+      RABBITMQ_DEFAULT_USER: amqp_test
+      RABBITMQ_DEFAULT_PASS: amqp_test_local
+    ports: ["127.0.0.1:55672:5672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

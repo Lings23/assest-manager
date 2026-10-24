@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"asset-platform/internal/servicekit"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -18,7 +19,7 @@ type PostgresStore struct {
 	pool *pgxpool.Pool
 }
 
-func OpenPostgresStore(ctx context.Context, databaseURL string) (*PostgresStore, error) {
+func OpenPostgresStore(ctx context.Context, databaseURL string, observation ...*servicekit.Metrics) (*PostgresStore, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse DATABASE_URL: %w", err)
@@ -27,9 +28,19 @@ func OpenPostgresStore(ctx context.Context, databaseURL string) (*PostgresStore,
 	config.MinConns = 1
 	config.MaxConnLifetime = 30 * time.Minute
 	config.MaxConnIdleTime = 5 * time.Minute
+	var metrics *servicekit.Metrics
+	if len(observation) > 0 {
+		metrics = observation[0]
+	}
+	if metrics != nil {
+		config.ConnConfig.Tracer = servicekit.NewDatabaseTracer(metrics, "primary")
+	}
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("open PostgreSQL: %w", err)
+	}
+	if metrics != nil {
+		metrics.RegisterPool("primary", pool)
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()

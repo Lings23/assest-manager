@@ -9,6 +9,11 @@ import (
 )
 
 func Run(ctx context.Context, cfg Config, logger *slog.Logger, handler http.Handler) error {
+	stopDiagnostics, err := StartDiagnostics(ctx, cfg, logger)
+	if err != nil {
+		return err
+	}
+	defer stopDiagnostics()
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           handler,

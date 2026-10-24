@@ -14,12 +14,19 @@ import (
 
 	"asset-platform/internal/assetschema"
 
+	"asset-platform/internal/servicekit"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 //go:embed migrations/001_generated.sql
 var assetMigration string
+
+//go:embed migrations/002_import_idempotency.sql
+var importMigration string
+
+//go:embed migrations/003_legacy_migrations.sql
+var legacyMigration string
 
 type Store struct {
 	pool *pgxpool.Pool
@@ -35,6 +42,7 @@ type ListFilter struct {
 	SortDescending bool
 	Limit          int
 	Offset         int
+	Internal       bool
 }
 
 type Version struct {
@@ -45,7 +53,7 @@ type Version struct {
 	CreatedAt time.Time       `json:"created_at"`
 }
 
-func OpenStore(ctx context.Context, databaseURL string) (*Store, error) {
+func OpenStore(ctx context.Context, databaseURL string, observation ...*servicekit.Metrics) (*Store, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse DATABASE_URL: %w", err)
@@ -54,15 +62,25 @@ func OpenStore(ctx context.Context, databaseURL string) (*Store, error) {
 	config.MinConns = 1
 	config.MaxConnLifetime = 30 * time.Minute
 	config.MaxConnIdleTime = 5 * time.Minute
+	var metrics *servicekit.Metrics
+	if len(observation) > 0 {
+		metrics = observation[0]
+	}
+	if metrics != nil {
+		config.ConnConfig.Tracer = servicekit.NewDatabaseTracer(metrics, "primary")
+	}
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("open PostgreSQL: %w", err)
+	}
+	if metrics != nil {
+		metrics.RegisterPool("primary", pool)
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("ping PostgreSQL: %w", err)
 	}
-	if _, err := pool.Exec(ctx, assetMigration); err != nil {
+	if _, err := pool.Exec(ctx, assetMigration+"\n"+importMigration+"\n"+legacyMigration); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("apply asset migration: %w", err)
 	}
@@ -72,49 +90,34 @@ func OpenStore(ctx context.Context, databaseURL string) (*Store, error) {
 func (s *Store) Close() { s.pool.Close() }
 
 func (s *Store) List(ctx context.Context, assetType string, filter ListFilter) ([]Record, error) {
+	operation := "asset_list"
+	if filter.Search != "" {
+		operation = "asset_search"
+	} else if filter.Offset >= 1000 {
+		operation = "asset_deep"
+	}
+	ctx = servicekit.WithDatabaseOperation(ctx, operation)
 	schema, ok := assetschema.Types[assetType]
 	if !ok {
 		return nil, ErrUnknownType
 	}
-	if filter.Limit < 1 || filter.Limit > 100 {
+	maxLimit := 100
+	if filter.Internal {
+		maxLimit = 5000
+	}
+	if filter.Limit < 1 || filter.Limit > maxLimit {
 		filter.Limit = 20
 	}
 	if filter.Offset < 0 {
 		filter.Offset = 0
 	}
-	var conditions []string
-	var arguments []any
+	if !hasAssetScope(filter) {
+		return []Record{}, nil
+	}
+	where, arguments := assetFilterSQL(schema, filter, 0)
 	addArgument := func(value any) string {
 		arguments = append(arguments, value)
 		return fmt.Sprintf("$%d", len(arguments))
-	}
-	if !filter.IncludeDeleted {
-		conditions = append(conditions, "t.deleted_at IS NULL")
-	}
-	if !filter.Global {
-		if filter.OwnerID != "" {
-			conditions = append(conditions, "t.owner_id = "+addArgument(filter.OwnerID))
-		} else if len(filter.DepartmentIDs) > 0 {
-			conditions = append(conditions, "t.department_id = ANY("+addArgument(filter.DepartmentIDs)+")")
-		} else {
-			return []Record{}, nil
-		}
-	}
-	if search := strings.TrimSpace(filter.Search); search != "" {
-		var searchable []string
-		placeholder := addArgument("%" + search + "%")
-		for _, field := range schema.Fields {
-			if field.Searchable {
-				searchable = append(searchable, fmt.Sprintf("t.%s::text ILIKE %s", quoteIdentifier(field.Name), placeholder))
-			}
-		}
-		if len(searchable) > 0 {
-			conditions = append(conditions, "("+strings.Join(searchable, " OR ")+")")
-		}
-	}
-	where := "TRUE"
-	if len(conditions) > 0 {
-		where = strings.Join(conditions, " AND ")
 	}
 	sortField := "updated_at"
 	if filter.SortField != "" {
@@ -131,13 +134,21 @@ func (s *Store) List(ctx context.Context, assetType string, filter ListFilter) (
 	}
 	limitPlaceholder := addArgument(filter.Limit)
 	offsetPlaceholder := addArgument(filter.Offset)
+	// Materialize only page keys before reading/encoding the full business row.
+	// Otherwise PostgreSQL can evaluate to_jsonb(t) for every matching row before
+	// sorting or discarding OFFSET rows. Both reads share one statement snapshot.
 	query := fmt.Sprintf(`
+		WITH page AS MATERIALIZED (
+			SELECT t.id, t.%s AS sort_key
+			FROM asset.%s AS t
+			WHERE %s
+			ORDER BY t.%s %s, t.id ASC
+			LIMIT %s OFFSET %s
+		)
 		SELECT to_jsonb(t)
-		FROM asset.%s AS t
-		WHERE %s
-		ORDER BY t.%s %s, t.id ASC
-		LIMIT %s OFFSET %s
-	`, quoteIdentifier(schema.Table), where, quoteIdentifier(sortField), direction, limitPlaceholder, offsetPlaceholder)
+		FROM page AS p JOIN asset.%s AS t ON t.id = p.id
+		ORDER BY p.sort_key %s, p.id ASC
+	`, quoteIdentifier(sortField), quoteIdentifier(schema.Table), where, quoteIdentifier(sortField), direction, limitPlaceholder, offsetPlaceholder, quoteIdentifier(schema.Table), direction)
 	rows, err := s.pool.Query(ctx, query, arguments...)
 	if err != nil {
 		return nil, err

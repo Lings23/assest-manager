@@ -6,6 +6,7 @@ export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-$(openssl rand -hex 24)}"
 export RABBITMQ_PASSWORD="${RABBITMQ_PASSWORD:-$(openssl rand -hex 24)}"
 export MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-$(openssl rand -hex 24)}"
 export IAM_BOOTSTRAP_ADMIN_PASSWORD="${IAM_BOOTSTRAP_ADMIN_PASSWORD:-$(openssl rand -hex 24)}"
+export INTERNAL_SERVICE_TOKEN="${INTERNAL_SERVICE_TOKEN:-$(openssl rand -hex 32)}"
 cookie_jar="$(mktemp)"
 
 cleanup() {
@@ -25,6 +26,8 @@ docker compose exec -T iam-service wget -qO- http://127.0.0.1:8081/health/ready 
 docker compose exec -T asset-service wget -qO- http://127.0.0.1:8082/health/ready >/dev/null
 docker compose exec -T governance-service wget -qO- http://127.0.0.1:8083/health/ready >/dev/null
 docker compose exec -T task-report-service wget -qO- http://127.0.0.1:8084/health/ready >/dev/null
+docker compose exec -T task-publisher wget -qO- http://127.0.0.1:8085/health/ready >/dev/null
+docker compose exec -T task-worker wget -qO- http://127.0.0.1:8086/health/ready >/dev/null
 
 gateway="http://127.0.0.1:${GATEWAY_PORT:-8080}"
 login_payload="$(node -e 'process.stdout.write(JSON.stringify({username:"admin",password:process.env.IAM_BOOTSTRAP_ADMIN_PASSWORD}))')"

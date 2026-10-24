@@ -1,19 +1,39 @@
+param(
+    [string]$EnvFile = '',
+    [string]$ComposeProject = ''
+)
 $ErrorActionPreference = 'Stop'
 
-$env:COMPOSE_PROJECT_NAME = "asset-governance-smoke-$([guid]::NewGuid().ToString('N'))"
-if (-not $env:POSTGRES_PASSWORD) { $env:POSTGRES_PASSWORD = [guid]::NewGuid().ToString('N') }
-if (-not $env:RABBITMQ_PASSWORD) { $env:RABBITMQ_PASSWORD = [guid]::NewGuid().ToString('N') }
-if (-not $env:MINIO_ROOT_PASSWORD) { $env:MINIO_ROOT_PASSWORD = [guid]::NewGuid().ToString('N') }
-if (-not $env:IAM_BOOTSTRAP_ADMIN_PASSWORD) { $env:IAM_BOOTSTRAP_ADMIN_PASSWORD = [guid]::NewGuid().ToString('N') }
+$root = Split-Path -Parent $PSScriptRoot
+if (-not $EnvFile) { $EnvFile = Join-Path $root '.env' }
+$values = @{}
+if (Test-Path -LiteralPath $EnvFile) {
+    $EnvFile = (Resolve-Path -LiteralPath $EnvFile).Path
+    Get-Content -LiteralPath $EnvFile | ForEach-Object {
+        if ($_ -match '^([^#=]+)=(.*)$') { $values[$matches[1].Trim()] = $matches[2].Trim() }
+    }
+}
+$ownsTemporaryProject = -not $ComposeProject
+if ($ownsTemporaryProject) { $ComposeProject = "asset-governance-smoke-$([guid]::NewGuid().ToString('N'))" }
+$env:COMPOSE_PROJECT_NAME = $ComposeProject
+foreach ($credentialName in @('POSTGRES_PASSWORD', 'RABBITMQ_PASSWORD', 'MINIO_ROOT_PASSWORD', 'IAM_BOOTSTRAP_ADMIN_PASSWORD', 'INTERNAL_SERVICE_TOKEN')) {
+    if (-not [Environment]::GetEnvironmentVariable($credentialName)) {
+        $credential = if ($values[$credentialName]) { $values[$credentialName] } else { [guid]::NewGuid().ToString('N') }
+        [Environment]::SetEnvironmentVariable($credentialName, $credential)
+    }
+}
+$composeArgs = @('compose', '-f', (Join-Path $root 'compose.yaml'), '-p', $ComposeProject)
+if (Test-Path -LiteralPath $EnvFile) { $composeArgs += @('--env-file', $EnvFile) }
+$username = if ($values.IAM_BOOTSTRAP_ADMIN_USERNAME) { $values.IAM_BOOTSTRAP_ADMIN_USERNAME } else { 'admin' }
 
 try {
-    docker compose config --quiet
+    & docker @composeArgs config --quiet
     if ($LASTEXITCODE -ne 0) { throw 'Compose configuration is invalid' }
-    docker compose up --build --detach --wait --wait-timeout 240
+    & docker @composeArgs up --build --detach --wait --wait-timeout 240
     if ($LASTEXITCODE -ne 0) { throw 'Compose environment failed to become healthy' }
 
-    $gatewayPort = if ($env:GATEWAY_PORT) { $env:GATEWAY_PORT } else { '8080' }
-    $webPort = if ($env:WEB_PORT) { $env:WEB_PORT } else { '8088' }
+    $gatewayPort = if ($env:GATEWAY_PORT) { $env:GATEWAY_PORT } elseif ($values.GATEWAY_PORT) { $values.GATEWAY_PORT } else { '8080' }
+    $webPort = if ($env:WEB_PORT) { $env:WEB_PORT } elseif ($values.WEB_PORT) { $values.WEB_PORT } else { '8088' }
     Invoke-RestMethod -Uri "http://127.0.0.1:$gatewayPort/health/ready" | Out-Null
     Invoke-WebRequest -Uri "http://127.0.0.1:$webPort/" -UseBasicParsing | Out-Null
 
@@ -21,16 +41,18 @@ try {
         @{ Name = 'iam-service'; Port = 8081 },
         @{ Name = 'asset-service'; Port = 8082 },
         @{ Name = 'governance-service'; Port = 8083 },
-        @{ Name = 'task-report-service'; Port = 8084 }
+        @{ Name = 'task-report-service'; Port = 8084 },
+        @{ Name = 'task-publisher'; Port = 8085 },
+        @{ Name = 'task-worker'; Port = 8086 }
     )) {
-        docker compose exec -T $service.Name wget -qO- "http://127.0.0.1:$($service.Port)/health/ready" | Out-Null
+        & docker @composeArgs exec -T $service.Name wget -qO- "http://127.0.0.1:$($service.Port)/health/ready" | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "$($service.Name) health check failed" }
     }
 
     $gateway = "http://127.0.0.1:$gatewayPort"
     $webSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     $loginBody = @{
-        username = 'admin'
+        username = $username
         password = $env:IAM_BOOTSTRAP_ADMIN_PASSWORD
     } | ConvertTo-Json
     $login = Invoke-RestMethod -Method Post -Uri "$gateway/api/v1/auth/login" `
@@ -50,7 +72,7 @@ try {
     Invoke-RestMethod -Method Post -Uri "$gateway/api/v1/auth/change-password" `
         -Headers $headers -ContentType 'application/json' -Body $changeBody -WebSession $webSession
     $webSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-    $loginBody = @{ username = 'admin'; password = $changedPassword } | ConvertTo-Json
+    $loginBody = @{ username = $username; password = $changedPassword } | ConvertTo-Json
     $login = Invoke-RestMethod -Method Post -Uri "$gateway/api/v1/auth/login" `
         -ContentType 'application/json' -Body $loginBody -WebSession $webSession
     if ($login.user.must_change_password) {
@@ -111,6 +133,6 @@ try {
     Write-Output 'Compose integration smoke test passed'
 }
 finally {
-    docker compose logs --no-color *> compose-smoke.log
-    docker compose down --volumes --remove-orphans
+    & docker @composeArgs logs --no-color *> (Join-Path $root 'compose-smoke.log')
+    if ($ownsTemporaryProject) { & docker @composeArgs down --volumes --remove-orphans }
 }

@@ -6,6 +6,7 @@ toolchain go1.25.13
 
 require (
 	github.com/jackc/pgx/v5 v5.9.2
+	github.com/rabbitmq/amqp091-go v1.11.0
 	golang.org/x/crypto v0.36.0
 )
 

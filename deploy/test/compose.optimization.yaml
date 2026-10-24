@@ -1,0 +1,20 @@
+# Only for the isolated asset-amqp-opt experiment. Old baseline tags are retained.
+services:
+  iam-service:
+    image: asset-amqp-opt-iam-service:${OPT_IMAGE_TAG:-latest}
+  asset-service:
+    image: asset-amqp-opt-asset-service:${OPT_IMAGE_TAG:-latest}
+  governance-service:
+    image: asset-amqp-opt-governance-service:${OPT_IMAGE_TAG:-latest}
+  task-report-service:
+    image: asset-amqp-opt-task-report-service:${OPT_IMAGE_TAG:-latest}
+  task-migrate:
+    image: asset-amqp-opt-task-migrate:${OPT_IMAGE_TAG:-latest}
+  task-publisher:
+    image: asset-amqp-opt-task-publisher:${OPT_IMAGE_TAG:-latest}
+  task-worker:
+    image: asset-amqp-opt-task-worker:${OPT_IMAGE_TAG:-latest}
+  gateway:
+    image: asset-amqp-opt-gateway:${OPT_IMAGE_TAG:-latest}
+  web:
+    image: asset-amqp-opt-web:${OPT_IMAGE_TAG:-latest}

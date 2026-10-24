@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"asset-platform/internal/iam"
+	"asset-platform/internal/servicekit"
 )
 
 type Authorizer interface {
@@ -23,14 +24,18 @@ type IAMAuthorizer struct {
 	client   *http.Client
 }
 
-func NewIAMAuthorizer(rawURL string) (*IAMAuthorizer, error) {
+func NewIAMAuthorizer(rawURL string, observation ...*servicekit.Metrics) (*IAMAuthorizer, error) {
 	parsed, err := url.Parse(strings.TrimSpace(rawURL))
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
 		return nil, fmt.Errorf("invalid IAM service URL")
 	}
+	var metrics *servicekit.Metrics
+	if len(observation) > 0 {
+		metrics = observation[0]
+	}
 	return &IAMAuthorizer{
 		endpoint: strings.TrimRight(parsed.String(), "/") + "/api/v1/auth/authorize",
-		client:   &http.Client{Timeout: 5 * time.Second},
+		client:   &http.Client{Timeout: 5 * time.Second, Transport: servicekit.ObservedTransport(nil, metrics, "iam_authorize")},
 	}, nil
 }
 

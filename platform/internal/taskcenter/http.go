@@ -37,8 +37,8 @@ func (h *HTTPHandler) Register(mux *http.ServeMux) {
 }
 func (h *HTTPHandler) create(w http.ResponseWriter, r *http.Request, kind string) {
 	var q createRequest
-	if decode(r, &q) != nil || strings.TrimSpace(q.AssetType) == "" || strings.TrimSpace(q.IdempotencyKey) == "" || (kind == "import" && q.CSV == "") {
-		servicekit.WriteError(w, r, 400, "INVALID_REQUEST", "asset_type, idempotency_key and import csv are required")
+	if err := decode(r, &q); err != nil || strings.TrimSpace(q.AssetType) == "" || strings.TrimSpace(q.IdempotencyKey) == "" || (kind == "import" && q.CSV == "") {
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "asset_type, idempotency_key and import csv are required")
 		return
 	}
 	t, created, err := h.service.Create(r.Context(), r.Header.Get("Authorization"), kind, q.AssetType, q.IdempotencyKey, q.DepartmentID, q.CSV)

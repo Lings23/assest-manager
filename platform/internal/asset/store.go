@@ -3,7 +3,7 @@ package asset
 import (
 	"context"
 	"crypto/rand"
-	_ "embed"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -19,14 +19,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed migrations/001_generated.sql
-var assetMigration string
+//go:embed migrations/*.sql
+var migrations embed.FS
 
-//go:embed migrations/002_import_idempotency.sql
-var importMigration string
-
-//go:embed migrations/003_legacy_migrations.sql
-var legacyMigration string
+func Migrate(ctx context.Context, url string) error {
+	return servicekit.MigrateSchema(ctx, url, "asset", migrations)
+}
+func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
 type Store struct {
 	pool *pgxpool.Pool
@@ -58,10 +57,9 @@ func OpenStore(ctx context.Context, databaseURL string, observation ...*servicek
 	if err != nil {
 		return nil, fmt.Errorf("parse DATABASE_URL: %w", err)
 	}
-	config.MaxConns = 10
-	config.MinConns = 1
-	config.MaxConnLifetime = 30 * time.Minute
-	config.MaxConnIdleTime = 5 * time.Minute
+	if err := servicekit.ConfigurePool(config, 10); err != nil {
+		return nil, err
+	}
 	var metrics *servicekit.Metrics
 	if len(observation) > 0 {
 		metrics = observation[0]
@@ -80,7 +78,7 @@ func OpenStore(ctx context.Context, databaseURL string, observation ...*servicek
 		pool.Close()
 		return nil, fmt.Errorf("ping PostgreSQL: %w", err)
 	}
-	if _, err := pool.Exec(ctx, assetMigration+"\n"+importMigration+"\n"+legacyMigration); err != nil {
+	if err := servicekit.CheckSchema(ctx, pool, "asset", migrations); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("apply asset migration: %w", err)
 	}

@@ -1,0 +1,118 @@
+{
+  "date": "2026-10-24",
+  "baseline_commit": "689cd65",
+  "project": "asset-multi-20261024",
+  "runtime_source_sha256": "df31b2a5c868a7413b63b724eeda2cca25df5d48c370d6cd7942f297d0d20e49",
+  "http_checks": [
+    {
+      "name": "public routes, CORS, request IDs, size limit and private-path isolation",
+      "status": "passed"
+    },
+    {
+      "name": "same token works across IAM, Asset and Task API with HTTP keep-alive",
+      "status": "passed",
+      "distribution": {
+        "/api/v1/auth/me": {
+          "0a6bf11056b1": 15,
+          "5dfbfc8f4dea": 15
+        },
+        "/api/v1/asset-types": {
+          "b2693e04288f": 15,
+          "a723afa20c24": 15
+        },
+        "/api/v1/import-jobs": {
+          "d24991d451e4": 15,
+          "482400ee54d0": 15
+        }
+      }
+    },
+    {
+      "name": "cross-replica refresh rotation and true replay still revoke the session family",
+      "status": "passed"
+    },
+    {
+      "name": "login failures share one quota across replicas, forged headers and process restart",
+      "status": "passed"
+    },
+    {
+      "name": "concurrent asset updates preserve optimistic locking",
+      "status": "passed",
+      "statuses": [
+        200,
+        409
+      ]
+    },
+    {
+      "name": "durable async preflight survives API kill, enforces digest and waits for confirmation",
+      "status": "passed"
+    },
+    {
+      "name": "invalid preflight publishes an authorized error report and cannot execute",
+      "status": "passed"
+    },
+    {
+      "name": "HTTP SIGKILL removes the failed replica and recovers healthy routing",
+      "status": "passed",
+      "stable_after_seconds": 3.094
+    },
+    {
+      "name": "SIGTERM drains an HTTP replica while traffic continues",
+      "status": "passed",
+      "errors": 0
+    },
+    {
+      "name": "Docker DNS discovers a third address and removes it on scale-down",
+      "status": "passed",
+      "discovered_instances": 3
+    },
+    {
+      "name": "object storage failure does not withdraw task-list and IAM routes",
+      "status": "passed"
+    },
+    {
+      "name": "all Asset replicas down returns JSON dependency error while other domains work",
+      "status": "passed"
+    },
+    {
+      "name": "per-instance metrics captured directly",
+      "status": "passed",
+      "instances": 6
+    }
+  ],
+  "rolling_traffic": {
+    "http_statuses": {
+      "401": 594
+    },
+    "instances": {
+      "b2693e04288f": 156,
+      "a723afa20c24": 90,
+      "df6393e9eaf0": 169,
+      "b9e29c577169": 127,
+      "a6434d9ac35c": 52
+    }
+  },
+  "integration": {
+    "servicekit": {
+      "passed": true,
+      "top_level_passed": 15
+    },
+    "iam": {
+      "passed": true,
+      "top_level_passed": 14
+    },
+    "taskcenter": {
+      "passed": true,
+      "top_level_passed": 84
+    },
+    "asset": {
+      "passed": true,
+      "top_level_passed": 18
+    }
+  },
+  "static_assets": {
+    "current_js_css_status": 200,
+    "prior_asset_retained_after_initializer": true
+  },
+  "capacity_claim": null,
+  "production_failover_tested": false
+}

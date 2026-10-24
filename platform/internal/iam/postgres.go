@@ -2,7 +2,7 @@ package iam
 
 import (
 	"context"
-	_ "embed"
+	"embed"
 	"errors"
 	"fmt"
 	"time"
@@ -12,8 +12,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed migrations/001_init.sql
-var iamMigration string
+//go:embed migrations/*.sql
+var migrations embed.FS
+
+func Migrate(ctx context.Context, url string) error {
+	return servicekit.MigrateSchema(ctx, url, "iam", migrations)
+}
+func (s *PostgresStore) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
 type PostgresStore struct {
 	pool *pgxpool.Pool
@@ -24,10 +29,9 @@ func OpenPostgresStore(ctx context.Context, databaseURL string, observation ...*
 	if err != nil {
 		return nil, fmt.Errorf("parse DATABASE_URL: %w", err)
 	}
-	config.MaxConns = 10
-	config.MinConns = 1
-	config.MaxConnLifetime = 30 * time.Minute
-	config.MaxConnIdleTime = 5 * time.Minute
+	if err := servicekit.ConfigurePool(config, 10); err != nil {
+		return nil, err
+	}
 	var metrics *servicekit.Metrics
 	if len(observation) > 0 {
 		metrics = observation[0]
@@ -46,7 +50,7 @@ func OpenPostgresStore(ctx context.Context, databaseURL string, observation ...*
 		pool.Close()
 		return nil, fmt.Errorf("ping PostgreSQL: %w", err)
 	}
-	if _, err := pool.Exec(ctx, iamMigration); err != nil {
+	if err := servicekit.CheckSchema(ctx, pool, "iam", migrations); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("apply IAM migration: %w", err)
 	}

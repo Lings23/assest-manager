@@ -55,7 +55,7 @@ func (h *HTTPHandler) Register(mux *http.ServeMux) {
 func (h *HTTPHandler) migrateLegacy(w http.ResponseWriter, r *http.Request) {
 	var request legacyRequest
 	if err := decodeRequest(r, &request); err != nil || request.Fields == nil || strings.TrimSpace(r.PathValue("legacyId")) == "" {
-		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "legacy id and fields are required")
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "legacy id and fields are required")
 		return
 	}
 	record, created, err := h.service.MigrateLegacy(r.Context(), r.Header.Get("Authorization"), r.PathValue("type"), r.PathValue("legacyId"), request.DepartmentID, request.IsDeleted, request.Fields)
@@ -109,7 +109,7 @@ func (h *HTTPHandler) list(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) create(w http.ResponseWriter, r *http.Request) {
 	var request createRequest
 	if err := decodeRequest(r, &request); err != nil || request.Fields == nil {
-		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "invalid asset request")
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "invalid asset request")
 		return
 	}
 	record, err := h.service.Create(
@@ -138,7 +138,7 @@ func (h *HTTPHandler) get(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) update(w http.ResponseWriter, r *http.Request) {
 	var request updateRequest
 	if err := decodeRequest(r, &request); err != nil || request.Version < 1 || request.Fields == nil {
-		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "version and fields are required")
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "version and fields are required")
 		return
 	}
 	record, err := h.service.Update(
@@ -155,7 +155,7 @@ func (h *HTTPHandler) update(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) delete(w http.ResponseWriter, r *http.Request) {
 	version, err := strconv.ParseInt(r.URL.Query().Get("version"), 10, 64)
 	if err != nil || version < 1 {
-		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "version is required")
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "version is required")
 		return
 	}
 	err = h.service.Delete(
@@ -171,7 +171,7 @@ func (h *HTTPHandler) delete(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) restore(w http.ResponseWriter, r *http.Request) {
 	var request versionRequest
 	if err := decodeRequest(r, &request); err != nil || request.Version < 1 {
-		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "version is required")
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "version is required")
 		return
 	}
 	record, err := h.service.Restore(

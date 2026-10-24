@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { request } from '@/api/client'
+import { request, refreshSession, resetRefreshFailure } from '@/api/client'
 import type { Principal, TokenResponse } from '@/types/iam'
 
 export const useSessionStore = defineStore('session', () => {
@@ -26,6 +26,7 @@ export const useSessionStore = defineStore('session', () => {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     })
+    resetRefreshFailure()
     setSession(response.access_token, response.user)
   }
   const changePassword = async (currentPassword: string, newPassword: string) => {
@@ -40,8 +41,7 @@ export const useSessionStore = defineStore('session', () => {
   }
   const refresh = async () => {
     try {
-      const response = await request<TokenResponse>('/api/v1/auth/refresh', { method: 'POST' })
-      setSession(response.access_token, response.user)
+      await refreshSession()
     } catch {
       clear()
     } finally {

@@ -101,9 +101,6 @@ func run() error {
 		return err
 	}
 	defer store.Close()
-	if err = objects.Ensure(signalCtx); err != nil {
-		return err
-	}
 	logger := servicekit.NewLogger("task-worker")
 	worker, err := taskcenter.NewWorkerWithConfig(store, broker, assets, objects, logger, workerCfg)
 	if err != nil {

@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -33,7 +35,7 @@ type statusResponse struct {
 }
 
 func NewLogger(service string) *slog.Logger {
-	return slog.New(slog.NewJSONHandler(logWriter{}, &slog.HandlerOptions{})).With("service", service)
+	return slog.New(slog.NewJSONHandler(logWriter{}, &slog.HandlerOptions{})).With("service", service, "instance", os.Getenv("HOSTNAME"), "version", envOrDefault("APP_VERSION", "dev"))
 }
 
 // logWriter keeps slog output on stderr without sharing mutable global logger state.
@@ -47,18 +49,26 @@ func NewHandler(cfg Config, logger *slog.Logger, register func(*http.ServeMux)) 
 	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, statusResponse{Status: "ok", Service: cfg.ServiceName})
 	})
-	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, r *http.Request) {
+		if !cfg.Readiness.Ready(r.Context()) {
+			WriteError(w, r, http.StatusServiceUnavailable, "NOT_READY", "service is not ready")
+			return
+		}
 		writeJSON(w, http.StatusOK, statusResponse{Status: "ready", Service: cfg.ServiceName})
 	})
 	mux.Handle("GET /metrics/service", MetricsFor(cfg.ServiceName).Handler(cfg.MetricsToken))
 	register(mux)
 
-	return MetricsFor(cfg.ServiceName).InstrumentHTTP(mux, requestIDMiddleware(
+	instrumented := MetricsFor(cfg.ServiceName).InstrumentHTTP(mux, requestIDMiddleware(
 		corsMiddleware(cfg.AllowedOrigins,
 			securityHeadersMiddleware(
-				bodyLimitMiddleware(cfg.MaxBodyBytes,
+				requestBudgetMiddleware(cfg, bodyLimitMiddleware(cfg.MaxBodyBytes,
 					loggingMiddleware(logger,
-						recoveryMiddleware(logger, routingHandler{mux: mux})))))))
+						recoveryMiddleware(logger, routingHandler{mux: mux}))))))))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Instance-ID", cfg.InstanceID)
+		instrumented.ServeHTTP(w, r)
+	})
 }
 
 type routingHandler struct{ mux *http.ServeMux }
@@ -81,6 +91,35 @@ func WriteError(w http.ResponseWriter, r *http.Request, status int, code, messag
 }
 
 func WriteJSON(w http.ResponseWriter, status int, value any) { writeJSON(w, status, value) }
+
+func WriteRequestError(w http.ResponseWriter, r *http.Request, err error, code, message string) {
+	var oversized *http.MaxBytesError
+	if errors.As(err, &oversized) {
+		WriteError(w, r, http.StatusRequestEntityTooLarge, "BODY_TOO_LARGE", "request body too large")
+		return
+	}
+	WriteError(w, r, http.StatusBadRequest, code, message)
+}
+
+func requestBudgetMiddleware(cfg Config, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		budget := cfg.RequestTimeout
+		if (r.Method == http.MethodPost && r.URL.Path == "/api/v1/import-jobs") || strings.HasSuffix(r.URL.Path, "/download") || strings.HasSuffix(r.URL.Path, "/errors") {
+			budget = cfg.FileTimeout
+		}
+		if budget <= 0 {
+			next.ServeHTTP(w, r)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), budget)
+		defer cancel()
+		deadline := time.Now().Add(budget)
+		controller := http.NewResponseController(w)
+		_ = controller.SetReadDeadline(deadline)
+		_ = controller.SetWriteDeadline(deadline)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
 
 func RequestID(ctx context.Context) string {
 	value, _ := ctx.Value(requestIDKey).(string)
@@ -139,6 +178,10 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 
 func bodyLimitMiddleware(limit int64, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ContentLength > limit {
+			WriteError(w, r, http.StatusRequestEntityTooLarge, "BODY_TOO_LARGE", "request body too large")
+			return
+		}
 		if r.Body != nil {
 			r.Body = http.MaxBytesReader(w, r.Body, limit)
 		}

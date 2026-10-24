@@ -23,6 +23,9 @@ func OpenStore(ctx context.Context, databaseURL string, observation ...*servicek
 	if err != nil {
 		return nil, err
 	}
+	if err := servicekit.ConfigurePool(config, 4); err != nil {
+		return nil, err
+	}
 	var metrics *servicekit.Metrics
 	if len(observation) > 0 {
 		metrics = observation[0]
@@ -60,7 +63,7 @@ func (s *Store) Create(ctx context.Context, task Task) (Task, bool, error) {
 	task.ID = uuid()
 	task.State = Pending
 	input, _ := json.Marshal(task.Input)
-	if task.Kind == "export" {
+	if task.Kind == "export" || isPreflight(task) {
 		task.DispatchVersion = 1
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -77,7 +80,7 @@ func (s *Store) Create(ctx context.Context, task Task) (Task, bool, error) {
 	} else if err != nil {
 		return Task{}, false, err
 	}
-	if task.Kind == "export" {
+	if task.Kind == "export" || isPreflight(task) {
 		if err = enqueueTask(ctx, tx, task); err != nil {
 			return Task{}, false, err
 		}
@@ -124,7 +127,7 @@ func (s *Store) Transition(ctx context.Context, id string, from, to State, progr
 }
 
 func (s *Store) Cancel(ctx context.Context, id, user string) (Task, error) {
-	return scanTask(s.pool.QueryRow(ctx, `UPDATE task_report.tasks SET state='cancelled',updated_at=now() WHERE id=$1 AND requested_by=$2 AND state IN('pending','awaiting_confirmation','failed') RETURNING `+columns, id, user))
+	return scanTask(s.pool.QueryRow(ctx, `UPDATE task_report.tasks SET state='cancelled',updated_at=now() WHERE id=$1 AND requested_by=$2 AND (state IN('pending','awaiting_confirmation','failed') OR (state='running' AND input->>'phase'='preflight')) RETURNING `+columns, id, user))
 }
 
 const columns = `id,kind,asset_type,state,idempotency_key,requested_by,COALESCE(department_id::text,''),progress,attempt,max_attempts,input,result,last_error,created_at,updated_at,dispatch_version,next_run_at,COALESCE(worker_id,''),COALESCE(execution_token::text,''),lease_until`

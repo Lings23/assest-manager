@@ -18,8 +18,8 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger, handler http.Hand
 		Addr:              cfg.HTTPAddr,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		ReadTimeout:       cfg.ReadTimeout,
+		WriteTimeout:      cfg.WriteTimeout,
 		IdleTimeout:       60 * time.Second,
 	}
 
@@ -36,8 +36,18 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger, handler http.Hand
 		}
 		return err
 	case <-ctx.Done():
+		if cfg.Readiness != nil {
+			cfg.Readiness.Drain()
+		}
+		logger.Info("draining HTTP service", "delay", cfg.DrainDelay)
+		timer := time.NewTimer(cfg.DrainDelay)
+		<-timer.C
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 		defer cancel()
-		return server.Shutdown(shutdownCtx)
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			_ = server.Close()
+			return err
+		}
+		return nil
 	}
 }

@@ -20,7 +20,13 @@ func migrationChecksumMatches(data []byte, registered string) bool {
 
 // Migrate runs only from the explicit migrate-only command, never at runtime.
 func Migrate(ctx context.Context, databaseURL string, cutover bool) error {
-	pool, err := pgxpool.New(ctx, databaseURL)
+	config, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		return err
+	}
+	config.MaxConns = 1
+	config.MinConns = 0
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return err
 	}
@@ -30,6 +36,9 @@ func Migrate(ctx context.Context, databaseURL string, cutover bool) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('asset-platform/migrate/task_report'))`); err != nil {
+		return err
+	}
 	if _, err = tx.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS task_report;
  CREATE TABLE IF NOT EXISTS task_report.schema_migrations(version text PRIMARY KEY,checksum text NOT NULL,applied_at timestamptz NOT NULL DEFAULT clock_timestamp());
  LOCK TABLE task_report.schema_migrations IN EXCLUSIVE MODE`); err != nil {
@@ -95,13 +104,19 @@ func (s *Store) CheckSchema(ctx context.Context) error {
 	if !exists {
 		return fmt.Errorf("task schema missing: run task-report-service --migrate-only before startup")
 	}
-	var checksum string
-	if err := s.pool.QueryRow(ctx, `SELECT checksum FROM task_report.schema_migrations WHERE version='002_amqp_execution.sql'`).Scan(&checksum); err != nil {
-		return fmt.Errorf("task schema outdated: run --migrate-only: %w", err)
+	entries, err := migrations.ReadDir("migrations")
+	if err != nil {
+		return err
 	}
-	data, _ := migrations.ReadFile("migrations/002_amqp_execution.sql")
-	if !migrationChecksumMatches(data, checksum) {
-		return fmt.Errorf("task schema checksum mismatch")
+	for _, entry := range entries {
+		var checksum string
+		if err := s.pool.QueryRow(ctx, `SELECT checksum FROM task_report.schema_migrations WHERE version=$1`, entry.Name()).Scan(&checksum); err != nil {
+			return fmt.Errorf("task schema outdated: run --migrate-only: %w", err)
+		}
+		data, _ := migrations.ReadFile("migrations/" + entry.Name())
+		if !migrationChecksumMatches(data, checksum) {
+			return fmt.Errorf("task schema checksum mismatch: %s", entry.Name())
+		}
 	}
 	return nil
 }

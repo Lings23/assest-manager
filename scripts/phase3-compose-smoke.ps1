@@ -73,6 +73,7 @@ $departmentName,$departmentCode
     $idempotencyKey = 'phase3-import-' + $suffix
 
     $created = Invoke-Json POST '/import-jobs' @{ asset_type = 'responsible-department'; idempotency_key = $idempotencyKey; csv = $csv } $token
+    $created.task = Wait-Task $created.task.id @('awaiting_confirmation') 120
     if ($created.task.state -ne 'awaiting_confirmation' -or $created.task.result.valid -ne 1) { throw 'import preflight did not pass' }
     if ($created.task.input.csv -or -not $created.task.input.source_object_key -or -not $created.task.input.source_object_key.StartsWith('imports/')) { throw 'import source was not staged safely in MinIO' }
     Invoke-Json POST ('/import-jobs/' + $created.task.id + '/confirm') @{} $token | Out-Null
@@ -86,6 +87,7 @@ $departmentName,$departmentCode
 ,INVALID
 "
     $invalid = Invoke-Json POST '/import-jobs' @{ asset_type = 'responsible-department'; idempotency_key = ('phase3-invalid-' + $suffix); csv = $invalidCsv } $token
+    $invalid.task = Wait-Task $invalid.task.id @('awaiting_confirmation') 120
     if ($invalid.task.state -ne 'awaiting_confirmation' -or $invalid.task.result.error_count -lt 1 -or -not $invalid.task.result.error_object_key) { throw 'invalid import did not create a MinIO error report' }
     $errorDownload = Invoke-WebRequest -Uri ($base + '/import-jobs/' + $invalid.task.id + '/errors') -Headers @{ Authorization = 'Bearer ' + $token }
     $errorText = Get-ResponseText $errorDownload

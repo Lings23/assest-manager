@@ -27,7 +27,7 @@ func (s *Store) ClaimTask(ctx context.Context, id string, version int64, workerI
  worker_id=$3,execution_token=$4,lease_until=clock_timestamp()+$5::bigint*interval '1 millisecond',last_error='',updated_at=clock_timestamp()
  FROM locked WHERE id=locked.locked_task_id AND dispatch_version=$2 AND dispatch_version>0 AND state IN ('pending','failed')
  AND next_run_at<=clock_timestamp() AND attempt<max_attempts
- AND (kind='export' OR (kind='import' AND result @> '{"confirmed":true}'::jsonb)) RETURNING `+columns, id, version, workerID, token, lease.Milliseconds()))
+ AND (kind='export' OR (kind='import' AND (result @> '{"confirmed":true}'::jsonb OR input->>'phase'='preflight'))) RETURNING `+columns, id, version, workerID, token, lease.Milliseconds()))
 	if errors.Is(err, ErrNotFound) {
 		return Execution{}, ErrConflict
 	}
@@ -117,6 +117,10 @@ func deadTask(ctx context.Context, tx pgx.Tx, t Task, reason string) error {
 	return err
 }
 func (s *Store) Complete(ctx context.Context, consumer, eventID string, e Execution, result map[string]any) error {
+	state := "succeeded"
+	if isPreflight(e.Task) {
+		state = "awaiting_confirmation"
+	}
 	data, err := json.Marshal(result)
 	if err != nil {
 		return err
@@ -129,14 +133,14 @@ func (s *Store) Complete(ctx context.Context, consumer, eventID string, e Execut
 	if _, err = lockExecution(ctx, tx, e); err != nil {
 		return err
 	}
-	tag, err := tx.Exec(ctx, `UPDATE task_report.tasks SET state='succeeded',progress=100,result=result||$5::jsonb,last_error='',worker_id=NULL,execution_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE `+executionPredicate, append(execArgs(e), data)...)
+	tag, err := tx.Exec(ctx, `UPDATE task_report.tasks SET state=$6,progress=100,result=result||$5::jsonb,last_error='',worker_id=NULL,execution_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE `+executionPredicate, append(execArgs(e), data, state)...)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() != 1 {
 		return ErrLeaseLost
 	}
-	if err = inbox(ctx, tx, consumer, eventID, "succeeded"); err != nil {
+	if err = inbox(ctx, tx, consumer, eventID, state); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

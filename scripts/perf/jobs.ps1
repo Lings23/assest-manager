@@ -189,7 +189,17 @@ $worker = {
         Save-Json $result $itemPath
         if ($Item.request_only) { $result.passed=$true; return [pscustomobject]$result }
         if ($Item.kind -eq 'import') {
-            $result.timing.preflight_ms = $created.duration_ms
+            $preflightDeadline = [DateTime]::UtcNow.AddSeconds($Config.wait_seconds)
+            while ($task.state -ne 'awaiting_confirmation') {
+                if ($task.state -in @('dead_letter','cancelled') -or [DateTime]::UtcNow -gt $preflightDeadline) { throw 'Async import preflight failed or timed out' }
+                Start-Sleep -Milliseconds 250
+                $preflightPoll = Invoke-PerfHttp $session GET ('/tasks/'+$task.id) $null 'preflight_poll'
+                Assert-Status $preflightPoll @(200) 'Preflight polling'
+                $task = $preflightPoll.data.task
+            }
+            $result.timing.preflight_ms = $timer.Elapsed.TotalMilliseconds
+            $result.timing.preflight_mode = 'async'
+
             if ($task.state -ne 'awaiting_confirmation' -or $task.result.total -ne $Item.rows -or $task.result.valid -ne $Item.rows -or $task.result.error_count -ne 0) { throw 'Import preflight counts/state mismatch' }
             $result.timing.create_to_confirm_gap_ms = $timer.Elapsed.TotalMilliseconds - $createReturnedMs
             $result.timing.upload_prepare_and_client_overhead_ms = $createReturnedMs - $created.duration_ms

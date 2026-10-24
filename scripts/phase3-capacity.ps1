@@ -26,6 +26,14 @@ $watch = [Diagnostics.Stopwatch]::StartNew()
 $created = Invoke-RestMethod -Method Post -Uri ($base + '/import-jobs') -Headers $headers -ContentType 'application/json' -Body $body
 if ($created.task.result.total -ne $Rows -or $created.task.result.valid -ne $Rows -or $created.task.result.error_count -ne 0) { throw "100k preflight result mismatch: total=$($created.task.result.total) valid=$($created.task.result.valid) errors=$($created.task.result.error_count)" }
 if ($created.task.input.csv -or -not $created.task.input.source_object_key) { throw '100k import source was not staged in MinIO' }
+$preflightDeadline = (Get-Date).AddMinutes(5)
+do {
+    $created.task = (Invoke-RestMethod -Uri ($base + '/tasks/' + $created.task.id) -Headers $headers).task
+    if ($created.task.state -in @('dead_letter','cancelled')) { throw 'Import preflight failed' }
+    if ($created.task.state -eq 'awaiting_confirmation') { break }
+    Start-Sleep -Milliseconds 500
+} while ((Get-Date) -lt $preflightDeadline)
+if ($created.task.state -ne 'awaiting_confirmation' -or $created.task.result.error_count -ne 0) { throw 'Import preflight did not pass' }
 Invoke-RestMethod -Method Post -Uri ($base + '/import-jobs/' + $created.task.id + '/confirm') -Headers $headers -ContentType 'application/json' -Body '{}' | Out-Null
 $deadline = (Get-Date).AddMinutes(10)
 do {

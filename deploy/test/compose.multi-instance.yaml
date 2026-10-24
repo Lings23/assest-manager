@@ -1,0 +1,15 @@
+# Use with the repository's compose.yaml, an independent project and env file.
+# Resetting port lists is intentional: requires Docker Compose >= 2.24.4.
+services:
+  postgres:
+    ports: !reset []
+  rabbitmq:
+    ports: !reset []
+  minio:
+    ports: !reset []
+  service-lb:
+    ports: !override
+      - "127.0.0.1:${MULTI_INSTANCE_PORT:-59180}:8080"
+    environment:
+      CORS_ORIGIN_1: http://localhost:${MULTI_INSTANCE_PORT:-59180}
+      CORS_ORIGIN_2: http://127.0.0.1:${MULTI_INSTANCE_PORT:-59180}

@@ -259,7 +259,8 @@ paths:
         "200": { $ref: "#/components/responses/Success" }
         "401": { $ref: "#/components/responses/Error" }
     post:
-      summary: 创建导入任务
+      summary: 持久化导入源文件并异步预检
+      description: 返回 pending/preflight 任务，轮询任务直到 awaiting_confirmation 后再确认；同键不同内容返回 409。
       operationId: createImportJob
       requestBody:
         required: true
@@ -267,7 +268,9 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/JobRequest" }
       responses:
-        "202": { $ref: "#/components/responses/Success" }
+        "202": { $ref: "#/components/responses/Task" }
+        "200": { $ref: "#/components/responses/Task" }
+        "409": { $ref: "#/components/responses/Error" }
         "400": { $ref: "#/components/responses/Error" }
   /import-jobs/{id}/errors:
     parameters:
@@ -301,7 +304,9 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/JobRequest" }
       responses:
-        "202": { $ref: "#/components/responses/Success" }
+        "202": { $ref: "#/components/responses/Task" }
+        "200": { $ref: "#/components/responses/Task" }
+        "409": { $ref: "#/components/responses/Error" }
         "400": { $ref: "#/components/responses/Error" }
   /export-jobs/{id}/download:
     parameters:
@@ -544,6 +549,22 @@ components:
       required: [version]
       properties:
         version: { type: integer, format: int64, minimum: 1 }
+    Task:
+      type: object
+      required: [id, kind, asset_type, phase, state, progress, attempt, max_attempts, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [import, export] }
+        asset_type: { type: string }
+        phase: { type: string, enum: [preflight, execution], description: 预检与正式执行使用独立派发代次和租约，确认后重置重试预算。 }
+        state: { type: string, enum: [pending, running, awaiting_confirmation, succeeded, failed, cancelled, dead_letter] }
+        progress: { type: integer, minimum: 0, maximum: 100 }
+        attempt: { type: integer }
+        max_attempts: { type: integer }
+        result: { type: object, additionalProperties: true }
+        last_error: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
     JobRequest:
       type: object
       additionalProperties: false
@@ -552,7 +573,7 @@ components:
         asset_type: { type: string }
         idempotency_key: { type: string, minLength: 1, maxLength: 200 }
         department_id: { type: string, format: uuid }
-        csv: { type: string, description: UTF-8 CSV；导入任务必填。服务端接收后立即写入 MinIO，任务表仅保存对象引用。 }
+        csv: { type: string, description: UTF-8 CSV；导入任务必填。服务端持久化文件后返回；Worker 带租约预检，等待确认后才执行导入。 }
     Error:
       type: object
       additionalProperties: false
@@ -567,6 +588,16 @@ components:
             message: { type: string }
             request_id: { type: string }
   responses:
+    Task:
+      description: 任务已持久化；预检完成前不得确认。重复请求返回同一任务。
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [task]
+            properties:
+              task: { $ref: "#/components/schemas/Task" }
+              created: { type: boolean }
     Success:
       description: 请求成功
       content:

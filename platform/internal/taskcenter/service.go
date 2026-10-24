@@ -1,8 +1,9 @@
 package taskcenter
 
 import (
-	"bytes"
+	"asset-platform/internal/assetschema"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -22,6 +23,12 @@ func NewService(store *Store, authorizer asset.Authorizer, assets AssetClient, o
 	return &Service{store: store, authorizer: authorizer, assets: assets, objects: objects}
 }
 func (s *Service) Create(ctx context.Context, token, kind, assetType, key, department, csvData string) (Task, bool, error) {
+	if _, ok := assetschema.Types[assetType]; !ok {
+		return Task{}, false, ErrInvalid
+	}
+	if strings.TrimSpace(key) == "" || len(key) > 200 {
+		return Task{}, false, ErrInvalid
+	}
 	action := "asset:read"
 	if kind == "import" {
 		action = "asset:create"
@@ -41,19 +48,25 @@ func (s *Service) Create(ctx context.Context, token, kind, assetType, key, depar
 	if kind == "import" && csvData == "" {
 		return Task{}, false, ErrInvalid
 	}
+	digestData, _ := json.Marshal([]any{kind, assetType, department, sha256Hex([]byte(csvData))})
+	digest := sha256Hex(digestData)
 	if existing, lookupErr := s.store.GetByKey(ctx, auth.Principal.UserID, kind, key); lookupErr == nil {
+		if stringInput(existing.Input, "request_digest") != digest {
+			return Task{}, false, ErrConflict
+		}
 		return existing, false, nil
 	} else if !errors.Is(lookupErr, ErrNotFound) {
 		return Task{}, false, lookupErr
 	}
 	query := queryFromAuthorization(auth)
-	input := map[string]any{"owner_id": query.OwnerID, "department_ids": query.DepartmentIDs, "global": query.Global, "view_sensitive": query.ViewSensitive}
+	input := map[string]any{"request_digest": digest, "owner_id": query.OwnerID, "department_ids": query.DepartmentIDs, "global": query.Global, "view_sensitive": query.ViewSensitive}
 	sourceKey := ""
 	if kind == "import" {
 		sourceKey = importSourceKey(auth.Principal.UserID, key, []byte(csvData))
 		if err = s.objects.Put(ctx, sourceKey, []byte(csvData), "text/csv; charset=utf-8"); err != nil {
 			return Task{}, false, fmt.Errorf("store import source: %w", err)
 		}
+		input["phase"] = "preflight"
 		input["source_object_key"] = sourceKey
 		input["source_size"] = len(csvData)
 		input["source_content_type"] = "text/csv; charset=utf-8"
@@ -64,6 +77,9 @@ func (s *Service) Create(ctx context.Context, token, kind, assetType, key, depar
 		if lookupErr == nil {
 			if sourceKey != "" && stringInput(existing.Input, "source_object_key") != sourceKey {
 				_ = s.objects.Delete(ctx, sourceKey)
+			}
+			if stringInput(existing.Input, "request_digest") != digest {
+				return Task{}, false, ErrConflict
 			}
 			return existing, false, nil
 		}
@@ -78,44 +94,10 @@ func (s *Service) Create(ctx context.Context, token, kind, assetType, key, depar
 		if sourceKey != "" && stringInput(task.Input, "source_object_key") != sourceKey {
 			_ = s.objects.Delete(ctx, sourceKey)
 		}
+		if stringInput(task.Input, "request_digest") != digest {
+			return Task{}, false, ErrConflict
+		}
 		return task, created, err
-	}
-	if kind == "import" {
-		running, err := s.store.Transition(ctx, task.ID, Pending, Running, 1, nil, "")
-		if err != nil {
-			return Task{}, true, err
-		}
-		body, _, objectErr := s.objects.Get(ctx, sourceKey)
-		if objectErr != nil {
-			_, _ = s.store.FailPermanent(ctx, task.ID, objectErr.Error())
-			return running, true, fmt.Errorf("preflight source: %w", objectErr)
-		}
-		check, err := PreflightCSV(assetType, body, false)
-		closeErr := body.Close()
-		if err == nil {
-			err = closeErr
-		}
-		if err != nil {
-			_, _ = s.store.FailPermanent(ctx, task.ID, err.Error())
-			return running, true, fmt.Errorf("preflight: %w", err)
-		}
-		result := map[string]any{"total": check.Total, "valid": check.Valid, "error_count": len(check.Errors), "source_object_key": sourceKey}
-		if len(check.Errors) > 0 {
-			var report bytes.Buffer
-			if err = EncodeErrorReport(&report, check.Errors); err != nil {
-				_, _ = s.store.FailPermanent(ctx, task.ID, err.Error())
-				return running, true, fmt.Errorf("encode preflight errors: %w", err)
-			}
-			errorKey := "import-errors/" + task.ID + ".jsonl"
-			if err = s.objects.Put(ctx, errorKey, report.Bytes(), "application/x-ndjson; charset=utf-8"); err != nil {
-				_, _ = s.store.FailPermanent(ctx, task.ID, err.Error())
-				return running, true, fmt.Errorf("store preflight errors: %w", err)
-			}
-			result["error_object_key"] = errorKey
-			result["error_download_url"] = "/api/v1/import-jobs/" + task.ID + "/errors"
-		}
-		updated, transitionErr := s.store.Transition(ctx, task.ID, Running, AwaitingConfirmation, 100, result, "")
-		return updated, true, transitionErr
 	}
 	return task, true, nil
 }
@@ -147,7 +129,7 @@ func (s *Service) Cancel(ctx context.Context, token, id string) (Task, error) {
 	if err != nil {
 		return Task{}, err
 	}
-	if task.State == Running || task.State == Succeeded || task.State == Cancelled || task.State == DeadLetter {
+	if (task.State == Running && !isPreflight(task)) || task.State == Succeeded || task.State == Cancelled || task.State == DeadLetter {
 		return Task{}, ErrConflict
 	}
 	if task.Kind == "import" {
@@ -165,6 +147,9 @@ func (s *Service) Confirm(ctx context.Context, token, id string) (Task, error) {
 	t, err := s.store.Get(ctx, id, auth.Principal.UserID)
 	if err != nil {
 		return Task{}, err
+	}
+	if !permittedDepartment(t.DepartmentID, auth) {
+		return Task{}, asset.ErrForbidden
 	}
 	return s.store.ConfirmAndEnqueue(ctx, t.ID, auth.Principal.UserID)
 }

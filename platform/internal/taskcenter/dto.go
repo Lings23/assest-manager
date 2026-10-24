@@ -5,6 +5,7 @@ import "time"
 // TaskDTO is the public task contract. It deliberately does not embed Task,
 // so adding internal execution metadata cannot accidentally expand an API.
 type TaskDTO struct {
+	Phase          string         `json:"phase"`
 	ID             string         `json:"id"`
 	Kind           string         `json:"kind"`
 	AssetType      string         `json:"asset_type"`
@@ -23,7 +24,7 @@ type TaskDTO struct {
 }
 
 func publicTask(task Task) TaskDTO {
-	return TaskDTO{ID: task.ID, Kind: task.Kind, AssetType: task.AssetType, State: task.State, IdempotencyKey: task.IdempotencyKey,
+	return TaskDTO{Phase: taskPhase(task), ID: task.ID, Kind: task.Kind, AssetType: task.AssetType, State: task.State, IdempotencyKey: task.IdempotencyKey,
 		RequestedBy: task.RequestedBy, DepartmentID: task.DepartmentID, Progress: task.Progress, Attempt: task.Attempt, MaxAttempts: task.MaxAttempts,
 		Input: task.Input, Result: task.Result, LastError: task.LastError, CreatedAt: task.CreatedAt, UpdatedAt: task.UpdatedAt}
 }

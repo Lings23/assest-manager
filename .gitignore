@@ -42,3 +42,7 @@ data/
 Thumbs.db
 nul
 nul\r
+
+# Python runtime caches
+__pycache__/
+*.pyc

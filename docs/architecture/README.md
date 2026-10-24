@@ -34,15 +34,17 @@ internal/、web/、main.go      已冻结的旧系统
 
 HAProxy Community 与 Nginx OSS 的能力比较、选型理由及 Go Gateway 迁移边界见 [HAProxy 与 Nginx 选型](haproxy-vs-nginx-selection.md)。
 
+多实例实现、兼容升级步骤及本地验收见 [多实例实施与验收](multi-instance-implementation.md)。
+
 ## 本地启动
 
 1. 复制 `.env.example` 为 `.env` 并替换所有开发密码。
-2. 执行 `docker compose up --build -d`。`task-migrate` 先以 `--migrate-only` 执行任务库增量迁移，退出成功后三个任务进程才启动；任务运行时只连接数据库并检查迁移版本。
+2. 执行 `scripts/init-deployment.ps1` 生成持久 IAM 私钥，再执行 `docker compose up --build -d`。IAM、Asset、Task 三个 migrate 任务显式执行迁移和初始化，运行时只检查版本及校验和。HAProxy 直接调度业务服务；Go Gateway 仅保留为回退 profile。
 3. 访问前端 `http://localhost:8088`，网关健康检查为 `http://localhost:8080/health/ready`。
 4. 执行 `bash scripts/compose-smoke.sh` 验证所有容器与网关路由。
 5. 停止环境使用 `docker compose down`；除非明确要清空开发数据，不要附加 `-v`。
 
-已有 HTTP consumer 部署应先按迁移方案停旧执行者并处理存量任务，再启动新 publisher/worker，避免旧新版本混跑。`task-report-service` 仅处理 API；`task-publisher` 只连接 PostgreSQL 与 AMQP；`task-worker` 默认 2 个 slot，每个 slot 使用共享队列订阅、手动 ACK 和 `prefetch=1`。可用 `docker compose up -d --scale task-worker=2` 扩容，worker 不绑定固定宿主端口。
+已有 HTTP consumer 部署应先按迁移方案停旧执行者并处理存量任务，再启动新 publisher/worker，避免旧新版本混跑。`task-report-service` 仅处理 API；`task-publisher` 只连接 PostgreSQL 与 AMQP；`task-worker` 默认 2 副本、每副本 1 个 slot，每个 slot 使用共享队列订阅、手动 ACK 和 `prefetch=1`。可用 `docker compose up -d --scale task-worker=2` 扩容，worker 不绑定固定宿主端口。
 
 worker 默认租约 90 秒、每 20 秒续租、任务上限 20 分钟、每 10 秒恢复过期执行、退出等待 60 秒；Compose 停机宽限 75 秒。RabbitMQ 配置显式设置确认超时 30 分钟，调整任务上限时应同步检查该预算。Management API 只用于管理界面和冒烟只读检查，业务运行使用 `RABBITMQ_URL`。旧格式消息兼容开关默认关闭。
 

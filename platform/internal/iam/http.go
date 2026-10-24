@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"sync"
 	"time"
@@ -17,7 +18,9 @@ import (
 const refreshCookieName = "asset_refresh"
 
 type HTTPConfig struct {
-	CookieSecure bool
+	CookieSecure   bool
+	LoginGate      LoginGate
+	TrustedProxies []netip.Prefix
 }
 
 type HTTPHandler struct {
@@ -91,7 +94,7 @@ func (h *HTTPHandler) changePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	var request changePasswordRequest
 	if err := decodeJSON(r, &request); err != nil {
-		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "invalid password change request")
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "invalid password change request")
 		return
 	}
 	if err := h.service.ChangePassword(r.Context(), principal, request.CurrentPassword, request.NewPassword); err != nil {
@@ -116,7 +119,7 @@ func (h *HTTPHandler) authorize(w http.ResponseWriter, r *http.Request) {
 	}
 	var request authorizeRequest
 	if err := decodeJSON(r, &request); err != nil {
-		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "invalid authorization request")
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "invalid authorization request")
 		return
 	}
 	authorization, err := h.service.Authorize(r.Context(), principal, request.Action)
@@ -143,7 +146,7 @@ func (h *HTTPHandler) listDepartments(w http.ResponseWriter, r *http.Request, _ 
 func (h *HTTPHandler) createDepartment(w http.ResponseWriter, r *http.Request, _ Principal) {
 	var request createDepartmentRequest
 	if err := decodeJSON(r, &request); err != nil {
-		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "invalid department")
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "invalid department")
 		return
 	}
 	department, err := h.service.CreateDepartment(r.Context(), NewDepartment{
@@ -159,21 +162,43 @@ func (h *HTTPHandler) createDepartment(w http.ResponseWriter, r *http.Request, _
 func (h *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
 	var request loginRequest
 	if err := decodeJSON(r, &request); err != nil {
-		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "invalid login request")
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "invalid login request")
 		return
 	}
-	limiterKey := clientIP(r) + "\x00" + normalizeUsername(request.Username)
-	if !h.limiter.Allow(limiterKey, time.Now().UTC()) {
-		servicekit.WriteError(w, r, http.StatusTooManyRequests, "LOGIN_RATE_LIMITED", "too many failed login attempts")
-		return
+	limiterKey := trustedClientIP(r, h.config.TrustedProxies) + "\x00" + normalizeUsername(request.Username)
+	var reservation time.Time
+	if h.config.LoginGate != nil {
+		var allowed bool
+		var err error
+		reservation, allowed, err = h.config.LoginGate.Reserve(r.Context(), limiterKey)
+		if err != nil {
+			servicekit.WriteError(w, r, http.StatusServiceUnavailable, "LOGIN_UNAVAILABLE", "login unavailable")
+			return
+		}
+		if !allowed {
+			servicekit.WriteError(w, r, http.StatusTooManyRequests, "LOGIN_RATE_LIMITED", "too many login attempts")
+			return
+		}
+	} else {
+		// The local gate is only used by in-memory unit-test services.
+		if !h.limiter.Allow(limiterKey, time.Now().UTC()) {
+			servicekit.WriteError(w, r, http.StatusTooManyRequests, "LOGIN_RATE_LIMITED", "too many login attempts")
+			return
+		}
+		h.limiter.Failed(limiterKey, time.Now().UTC())
 	}
 	pair, err := h.service.Login(r.Context(), request.Username, request.Password)
 	if err != nil {
-		h.limiter.Failed(limiterKey, time.Now().UTC())
 		servicekit.WriteError(w, r, http.StatusUnauthorized, "INVALID_CREDENTIALS", "invalid username or password")
 		return
 	}
-	h.limiter.Succeeded(limiterKey)
+	if h.config.LoginGate != nil {
+		if err := h.config.LoginGate.ReleaseSuccess(r.Context(), limiterKey, reservation); err != nil {
+			h.logger.Error("release login reservation", "error", err)
+		}
+	} else {
+		h.limiter.Succeeded(limiterKey)
+	}
 	h.writeTokenPair(w, pair)
 }
 
@@ -225,7 +250,7 @@ func (h *HTTPHandler) listUsers(w http.ResponseWriter, r *http.Request, _ Princi
 func (h *HTTPHandler) createUser(w http.ResponseWriter, r *http.Request, _ Principal) {
 	var request createUserRequest
 	if err := decodeJSON(r, &request); err != nil {
-		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "invalid user")
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "invalid user")
 		return
 	}
 	user, err := h.service.CreateUser(r.Context(), NewUser{
@@ -243,7 +268,7 @@ func (h *HTTPHandler) createUser(w http.ResponseWriter, r *http.Request, _ Princ
 func (h *HTTPHandler) updateAccess(w http.ResponseWriter, r *http.Request, principal Principal) {
 	var request updateAccessRequest
 	if err := decodeJSON(r, &request); err != nil {
-		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "invalid access policy")
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "invalid access policy")
 		return
 	}
 	if r.PathValue("id") == principal.UserID && (!request.Enabled || !containsRole(request.Roles, RoleAdmin)) {
@@ -312,7 +337,7 @@ func (h *HTTPHandler) clearRefreshCookie(w http.ResponseWriter) {
 func (h *HTTPHandler) writeDomainError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, ErrInvalidInput):
-		servicekit.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "request validation failed")
+		servicekit.WriteRequestError(w, r, err, "INVALID_REQUEST", "request validation failed")
 	case errors.Is(err, ErrConflict):
 		servicekit.WriteError(w, r, http.StatusConflict, "CONFLICT", "resource already exists")
 	case errors.Is(err, ErrNotFound):

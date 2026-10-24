@@ -35,7 +35,7 @@
 
 - Go 1.25.12 或更新的受支持版本
 - Node.js 22
-- Docker Engine 和 Docker Compose v2
+- Docker Engine 和 Docker Compose >= 2.24.4
 
 ## 新平台本地启动
 
@@ -43,14 +43,15 @@
 
 ```powershell
 Copy-Item .env.example .env
+.\scripts\init-deployment.ps1
 docker compose up --build --detach --wait
 ```
 
 访问地址：
 
 - 新前端：`http://localhost:8088`
-- API Gateway：`http://localhost:8080`
-- 网关就绪检查：`http://localhost:8080/health/ready`
+- HAProxy API 入口：`http://localhost:8080`
+- 入口就绪检查：`http://localhost:8080/health/ready`
 
 完整冒烟：
 
@@ -59,6 +60,8 @@ docker compose up --build --detach --wait
 ```
 
 脚本会生成临时测试密码、构建并启动完整环境、执行 HTTP 和容器健康检查，然后停止容器。
+
+多实例部署、升级和回退见 [多实例实施与验收](docs/architecture/multi-instance-implementation.md)。默认 IAM、Asset、Task API 各 2 副本，2 个 Worker 各 1 slot。隔离验收可执行 `.\scripts\multi-instance-smoke.ps1`；它使用独立项目、随机凭证和持久密钥，默认保留卷并停止实验容器。
 
 ## 旧系统本地启动
 

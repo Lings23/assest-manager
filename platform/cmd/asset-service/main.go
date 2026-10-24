@@ -2,18 +2,30 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"asset-platform/internal/asset"
 	"asset-platform/internal/servicekit"
 )
 
 func main() {
+	migrateOnly := flag.Bool("migrate-only", false, "apply asset migrations and exit")
+	flag.Parse()
+	if *migrateOnly {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		if err := asset.Migrate(ctx, os.Getenv("DATABASE_URL")); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	cfg, err := servicekit.LoadConfig("asset-service", ":8082")
 	if err != nil {
 		log.Fatal(err)
@@ -38,6 +50,7 @@ func main() {
 	api := asset.NewHTTPHandler(service)
 	internalAPI := asset.NewInternalHTTPHandler(store, strings.TrimSpace(os.Getenv("INTERNAL_SERVICE_TOKEN")), cfg.MaxBodyBytes)
 	logger := servicekit.NewLogger("asset-service")
+	cfg.Readiness = servicekit.NewReadiness(store.Ping)
 	handler := servicekit.NewHandler(cfg, logger, func(mux *http.ServeMux) {
 		api.Register(mux)
 		internalAPI.Register(mux)

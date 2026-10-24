@@ -25,8 +25,8 @@ func (s *Store) ConfirmAndEnqueue(ctx context.Context, id, user string) (Task, e
 	}
 	defer tx.Rollback(ctx)
 	t, err := scanTask(tx.QueryRow(ctx, `UPDATE task_report.tasks SET state='pending',progress=0,
- result=result||'{"confirmed":true}'::jsonb,dispatch_version=1,next_run_at=clock_timestamp(),updated_at=clock_timestamp()
- WHERE id=$1 AND requested_by=$2 AND kind='import' AND dispatch_version=0 AND state='awaiting_confirmation'
+ result=result||'{"confirmed":true}'::jsonb,input=input||'{"phase":"execution"}'::jsonb,attempt=0,dispatch_version=dispatch_version+1,next_run_at=clock_timestamp(),updated_at=clock_timestamp()
+ WHERE id=$1 AND requested_by=$2 AND kind='import' AND state='awaiting_confirmation'
  AND COALESCE((result->>'error_count')::int,0)=0
  AND COALESCE(jsonb_array_length(CASE WHEN jsonb_typeof(result->'errors')='array' THEN result->'errors' ELSE '[]'::jsonb END),0)=0
  RETURNING `+columns, id, user))

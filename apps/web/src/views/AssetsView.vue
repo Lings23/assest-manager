@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { request } from '@/api/client'
 import { assetSchemas } from '@/generated/asset-meta'
 import { useSessionStore } from '@/stores/session'
+import ImportJobs from '@/components/ImportJobs.vue'
 
 interface EnumOption { value: string | number; label: string }
 interface FieldMeta {
@@ -171,6 +172,8 @@ onMounted(load)
     :closable="false"
     class="schema-alert"
   />
+
+  <ImportJobs :asset-type="currentType" @completed="load" />
 
   <el-table v-loading="loading" :data="items" border>
     <el-table-column v-for="field in listFields" :key="field.name" :label="field.label" min-width="140">

@@ -22,6 +22,13 @@ foreach ($credentialName in @('POSTGRES_PASSWORD', 'RABBITMQ_PASSWORD', 'MINIO_R
         [Environment]::SetEnvironmentVariable($credentialName, $credential)
     }
 }
+if (-not $env:IAM_PRIVATE_KEY_FILE) {
+ $env:IAM_PRIVATE_KEY_FILE = if ($values.IAM_PRIVATE_KEY_FILE) {
+  if ([IO.Path]::IsPathRooted($values.IAM_PRIVATE_KEY_FILE)) { $values.IAM_PRIVATE_KEY_FILE } else { Join-Path $root $values.IAM_PRIVATE_KEY_FILE }
+ } else { Join-Path $root "data/secrets/$ComposeProject.pem" }
+ & (Join-Path $PSScriptRoot 'init-deployment.ps1') -KeyFile $env:IAM_PRIVATE_KEY_FILE
+}
+$env:APP_SUBNET = if ($env:APP_SUBNET) { $env:APP_SUBNET } else { "172.29.$(Get-Random -Minimum 10 -Maximum 240).0/24" }
 $composeArgs = @('compose', '-f', (Join-Path $root 'compose.yaml'), '-p', $ComposeProject)
 if (Test-Path -LiteralPath $EnvFile) { $composeArgs += @('--env-file', $EnvFile) }
 $username = if ($values.IAM_BOOTSTRAP_ADMIN_USERNAME) { $values.IAM_BOOTSTRAP_ADMIN_USERNAME } else { 'admin' }

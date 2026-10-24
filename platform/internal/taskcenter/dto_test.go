@@ -21,7 +21,14 @@ func TestPublicTaskContractDoesNotExposeExecutionMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(actual) != string(expected) {
+	var oldContract, newContract map[string]any
+	_ = json.Unmarshal(expected, &oldContract)
+	_ = json.Unmarshal(actual, &newContract)
+	if newContract["phase"] != "preflight" {
+		t.Fatal("missing preflight phase")
+	}
+	delete(newContract, "phase")
+	if !reflect.DeepEqual(newContract, oldContract) {
 		t.Fatalf("public contract changed: %s versus %s", actual, expected)
 	}
 	publicType := reflect.TypeOf(TaskDTO{})

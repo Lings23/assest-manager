@@ -147,8 +147,8 @@ func TestWorkerPostgresAMQPConcurrentDuplicateRecoveryAndDrain(t *testing.T) {
 }
 
 type workerFaultBroker struct {
-	broker                    ConsumerBroker
-	breakAck                  atomic.Bool
+	broker                                  ConsumerBroker
+	breakAck                                atomic.Bool
 	ackFailures, redeliveries, acknowledged atomic.Int32
 }
 type workerFaultSubscription struct {
@@ -185,7 +185,9 @@ func (b *workerFaultBroker) Subscribe(ctx context.Context, tag string) (Subscrip
 						return errors.New("injected disconnect after durable commit before ACK")
 					}
 					err := originalAck()
-					if err == nil { b.acknowledged.Add(1) }
+					if err == nil {
+						b.acknowledged.Add(1)
+					}
 					return err
 				}
 				select {
@@ -221,7 +223,9 @@ func TestWorkerPostgresAMQPDisconnectAfterCommitDeduplicatesRedelivery(t *testin
 	if err := broker.Publish(t.Context(), event); err != nil {
 		t.Fatal(err)
 	}
-	waitWorkerIntegration(t, 7*time.Second, func() bool { return faults.ackFailures.Load() == 1 && faults.redeliveries.Load() >= 1 && faults.acknowledged.Load() == 1 })
+	waitWorkerIntegration(t, 7*time.Second, func() bool {
+		return faults.ackFailures.Load() == 1 && faults.redeliveries.Load() >= 1 && faults.acknowledged.Load() == 1
+	})
 	task, err := store.WorkerTask(t.Context(), task.ID)
 	if err != nil || task.State != Succeeded || task.Attempt != 1 || calls.Load() != 1 {
 		t.Fatalf("redelivery mutated committed task: task=%+v calls=%d err=%v", task, calls.Load(), err)

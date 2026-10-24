@@ -71,3 +71,13 @@ func CanTransition(from, to State) bool {
 		return false
 	}
 }
+
+func isPreflight(t Task) bool {
+	return t.Kind == "import" && stringInput(t.Input, "phase") == "preflight" && !boolInput(t.Result, "confirmed")
+}
+func taskPhase(t Task) string {
+	if t.Kind == "import" && !boolInput(t.Result, "confirmed") {
+		return "preflight"
+	}
+	return "execution"
+}

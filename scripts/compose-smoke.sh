@@ -7,12 +7,16 @@ export RABBITMQ_PASSWORD="${RABBITMQ_PASSWORD:-$(openssl rand -hex 24)}"
 export MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-$(openssl rand -hex 24)}"
 export IAM_BOOTSTRAP_ADMIN_PASSWORD="${IAM_BOOTSTRAP_ADMIN_PASSWORD:-$(openssl rand -hex 24)}"
 export INTERNAL_SERVICE_TOKEN="${INTERNAL_SERVICE_TOKEN:-$(openssl rand -hex 32)}"
+export IAM_PRIVATE_KEY_FILE="$(mktemp)"
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$IAM_PRIVATE_KEY_FILE" 2>/dev/null
+chmod 644 "$IAM_PRIVATE_KEY_FILE"
+export APP_SUBNET="${APP_SUBNET:-172.29.242.0/24}"
 cookie_jar="$(mktemp)"
 
 cleanup() {
   docker compose logs --no-color > compose-smoke.log 2>&1 || true
   docker compose down --volumes --remove-orphans || true
-  rm -f "$cookie_jar"
+  rm -f "$cookie_jar" "$IAM_PRIVATE_KEY_FILE"
 }
 trap cleanup EXIT
 

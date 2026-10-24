@@ -439,7 +439,9 @@ func (w *Worker) execute(ctx context.Context, message Message, execution Executi
 	}()
 	var result map[string]any
 	var err error
-	if execution.Kind == "import" {
+	if isPreflight(execution.Task) {
+		result, err = w.runPreflight(execCtx, execution)
+	} else if execution.Kind == "import" {
 		result, err = w.runImport(execCtx, execution)
 	} else {
 		result, err = w.runExport(execCtx, execution)
